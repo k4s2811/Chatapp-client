@@ -2,12 +2,13 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: 'http://localhost:3001/brr',
-  withCredentials: true, // send cookies (refresh token)
+  withCredentials: true,
 })
 
 // Attach access token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
+  if (!config.headers) config.headers = {}
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`
   }
@@ -29,13 +30,18 @@ const processQueue = (error, token = null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const original = error.config
+    const original = error.config || {}
 
-    if (error.response?.status === 401 && !original._retry) {
+    // Prevent infinite loops
+    if (!original || original._retry) {
+      return Promise.reject(error)
+    }
+
+    if (error.response?.status === 401) {
       if (original.url === '/user/refresh') {
-        // Refresh itself failed → clear everything
+        // Refresh itself failed clear everything
         localStorage.removeItem('accessToken')
-        window.dispatchEvent(new Event('user:logout'))
+        window.dispatchEvent(new Event('user:signout'))
         return Promise.reject(error)
       }
 
@@ -44,6 +50,7 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         }).then((token) => {
+          original.headers = original.headers || {}
           original.headers['Authorization'] = `Bearer ${token}`
           return api(original)
         })
@@ -54,16 +61,20 @@ api.interceptors.response.use(
 
       try {
         const { data } = await api.post('/user/refresh')
-        const newToken = data.data.accessToken
+        const newToken = data?.data?.accessToken
+
+        if (!newToken) throw new Error('No access token returned')
         localStorage.setItem('accessToken', newToken)
         api.defaults.headers['Authorization'] = `Bearer ${newToken}`
         processQueue(null, newToken)
+
         original.headers['Authorization'] = `Bearer ${newToken}`
         return api(original)
       } catch (err) {
         processQueue(err, null)
         localStorage.removeItem('accessToken')
-        window.dispatchEvent(new Event('user:logout'))
+
+        window.dispatchEvent(new Event('user:signout'))
         return Promise.reject(err)
       } finally {
         isRefreshing = false
