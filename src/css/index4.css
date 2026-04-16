@@ -1,0 +1,109 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Glass Light: Crystal clear with soft white frost */
+  --background: oklch(0.95 0.01 280);
+  --foreground: oklch(0.25 0.05 280);
+  
+  /* Semi-transparent Glass Panels */
+  --glass-bg: oklch(1 0 0 / 0.6); 
+  --glass-border: oklch(1 0 0 / 0.5);
+  
+  --primary: oklch(0.55 0.18 280);
+  --primary-foreground: oklch(1 0 0);
+
+  --muted: oklch(0.93 0 0 / 0.5);
+  --muted-foreground: oklch(0.40 0 0);
+  
+  --border: oklch(0.15 0 0 / 0.1);
+  --sidebar: oklch(1 0 0 / 0.4);
+  
+  --message-sent: oklch(0.55 0.18 280 / 0.85);
+  --message-received: oklch(1 0 0 / 0.7);
+
+  /* The topographic lines need to be stronger to show through the glass */
+  --chat-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 100c20-5 33-25 50-25s30 20 50 25M0 75c20-5 33-25 50-25s30 20 50 25M0 50c20-5 33-25 50-25s30 20 50 25M0 25c20-5 33-25 50-25s30 20 50 25' stroke='%234f46e5' stroke-width='1' fill='none' stroke-opacity='0.15'/%3E%3C/svg%3E");
+}
+
+.dark {
+  /* Glass Dark: Smoked obsidian glass */
+  --background: oklch(0.1 0 0);
+  --foreground: oklch(0.98 0 0);
+  
+  --glass-bg: oklch(0.15 0 0 / 0.6);
+  --glass-border: oklch(1 0 0 / 0.1);
+
+  --primary: oklch(0.65 0.20 280);
+  --primary-foreground: oklch(1 0 0);
+
+  --muted: oklch(0.2 0 0 / 0.5);
+  --muted-foreground: oklch(0.7 0 0);
+  
+  --border: oklch(1 0 0 / 0.1);
+  --sidebar: oklch(0.05 0 0 / 0.3);
+
+  --message-sent: oklch(0.65 0.20 280 / 0.7);
+  --message-received: oklch(0.2 0 0 / 0.6);
+
+  --chat-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 100c20-5 33-25 50-25s30 20 50 25M0 75c20-5 33-25 50-25s30 20 50 25M0 50c20-5 33-25 50-25s30 20 50 25M0 25c20-5 33-25 50-25s30 20 50 25' stroke='%23818cf8' stroke-width='1' fill='none' stroke-opacity='0.2'/%3E%3C/svg%3E");
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-sidebar: var(--sidebar);
+}
+
+@layer base {
+  /* Apply Glassmorphism globally */
+
+  /* Sidebar and Popovers */
+  .bg-sidebar, .bg-popover, .bg-card {
+    background-color: var(--glass-bg) !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--glass-border) !important;
+  }
+
+  /* Chat Window Header & Input Area */
+  .backdrop-blur-xl {
+    background-color: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+  }
+
+  /* Message Bubbles - Translucent glass style */
+  [data-testid^="message-bubble"] {
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Received Messages */
+  .bg-message-received {
+    background-color: var(--message-received) !important;
+  }
+
+  /* Sent Messages */
+  .bg-message-sent {
+    background-color: var(--message-sent) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  /* Inputs */
+  input {
+    background-color: var(--muted) !important;
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--glass-border) !important;
+  }
+
+  /* Scrollbar - Minimal Glass */
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--muted-foreground) / 0.2;
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+  }
+}
