@@ -8,7 +8,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    port: 5173,
+    port: 5100,
     proxy: {
       '/brr': {
         target: 'http://localhost:3001',

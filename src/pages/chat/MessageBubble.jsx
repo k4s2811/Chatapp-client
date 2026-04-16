@@ -88,13 +88,12 @@ const MessageBubble = ({ message, isOwn }) => {
           <div
             onContextMenu={handleContextMenu}
             className={`${isOwn
-                ? 'bg-message-sent text-message-sent-foreground'
-                : 'bg-message-received text-message-received-foreground border border-border'
+              ? 'bg-message-sent text-message-sent-foreground'
+              : 'bg-message-received text-message-received-foreground border border-border'
               } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
               } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform`}
           >
-            {/* Removed select-none so users can highlight text normally */}
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+            <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words">
               {renderTextWithLinks(message.text)}
             </p>
           </div>

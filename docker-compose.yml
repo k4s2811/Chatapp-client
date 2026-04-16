@@ -1,0 +1,7 @@
+services:
+  chat-client:
+    build: .
+    container_name: chat-client-prod
+    ports:
+      - "5100:5100"
+    restart: always

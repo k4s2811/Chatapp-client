@@ -69,9 +69,9 @@ export default function Profile() {
       {/* Top Header */}
       <div className="flex items-center justify-between p-4 sticky top-0 bg-sidebar z-10">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="hover:bg-sidebar-accent p-2 rounded-full transition-colors">
+          {/* <button onClick={() => navigate(-1)} className="hover:bg-sidebar-accent p-2 rounded-full transition-colors">
             <ArrowLeft size={20} />
-          </button>
+          </button> */}
           <h1 className="text-xl font-semibold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Settings
           </h1>
