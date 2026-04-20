@@ -60,8 +60,8 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const { data } = await api.post('/user/refresh')
-        const newToken = data?.data?.accessToken
+        const response = await api.post('/user/refresh')
+        const newToken = response.data?.data?.accessToken
 
         if (!newToken) throw new Error('No access token returned')
         localStorage.setItem('accessToken', newToken)

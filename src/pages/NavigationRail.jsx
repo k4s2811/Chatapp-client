@@ -1,6 +1,5 @@
 import React from 'react';
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { Group, MessageSquare, CircleDashed, Radio, Users, Settings, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../components/ui/tooltip';
@@ -43,8 +42,6 @@ const NavItem = ({ icon: Icon, label, mode, badge, active, onClick }) => (
 );
 
 const NavigationRail = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const navItems = [
     { icon: MessageSquare, label: 'Chats', mode: 'chat' },
@@ -52,6 +49,7 @@ const NavigationRail = () => {
     { icon: Group, label: 'Groups', mode: 'groups' }
   ];
   const { mode, setMode } = useMode();
+  const [lastMode, setLastMode] = useState('chat');
   return (
     <TooltipProvider delayDuration={0}>
       <div className="w-16 flex flex-col items-center py-4 border-r
@@ -77,7 +75,14 @@ const NavigationRail = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setMode('profile')}
+                onClick={() => {
+                  if (mode === 'profile') {
+                    setMode(lastMode);
+                  } else {
+                    setLastMode(mode);
+                    setMode('profile');
+                  }
+                }}
                 className={`p-0.5 rounded-full border-2 transition-all 
                   hover:bg-muted hover:text-foreground 
                   ${mode === 'profile' ? 'border-primary' : 'border-transparent'}`}

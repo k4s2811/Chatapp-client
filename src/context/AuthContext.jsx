@@ -20,28 +20,20 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('accessToken')
             setUser(null)
             window.location.href = '/signin'
-            console.log("AUTH PROVIDER SIGNOUT")
         }
         window.addEventListener('user:signout', handler)
         return () => window.removeEventListener('user:signout', handler)
     }, [])
 
     // Restore session on mount
+    // AuthContext.jsx
     useEffect(() => {
         const restore = async () => {
             const token = localStorage.getItem('accessToken')
-            if (!token) {
-                setLoading(false);
-                console.log("NO TOKEN")
-                return
-            }
             try {
                 const res = await authApi.me()
                 setUser(res.data.data.user)
-                console.log("AUTH PROVIDER RESTORE")
-                console.log("USER:", res.data.data.user)
-            } catch {
-                localStorage.removeItem('accessToken')
+            } catch (err) {
             } finally {
                 setLoading(false)
             }
@@ -49,14 +41,12 @@ export const AuthProvider = ({ children }) => {
         restore()
     }, [])
 
-
     // signin
     const signin = async (credentials) => {
         const res = await authApi.signin(credentials)
         // if (credentials.remember) {
             localStorage.setItem('accessToken', res.data.data.accessToken)
             setUser(res.data.data.user)
-            console.log("TOKEN:", localStorage.getItem('accessToken'))
         // }
         return res
     }
@@ -81,7 +71,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const ctx = useContext(AuthContext)
-    console.log("AUTH PROVIDER USEAUTH")
     if (!ctx) throw new Error('useAuth must be used within AuthProvider')
     return ctx
 }

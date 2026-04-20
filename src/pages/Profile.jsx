@@ -129,7 +129,7 @@ export default function Profile() {
                   onChange={set('currentPassword')}
                   className="pl-10 pr-10"
                   disabled={loading}
-                  autoComplete="new-password"
+                  autoComplete="current-password"
                   required
                 />
                 <button
@@ -224,7 +224,6 @@ export default function Profile() {
                   onChange={set('confirmPassword')}
                   className="pl-10 pr-10"
                   disabled={loading}
-                  autoComplete="new-password"
                   required
                 />
                 <button
