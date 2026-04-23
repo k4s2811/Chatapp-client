@@ -14,9 +14,10 @@ export const authApi = {
 }
 
 export const usersApi = {
-  getSessions: () => api.get('/user/me/sessions'),
-  list: (params) => api.get('/user', { params }),
-  getById: (id) => api.get(`/user/${id}`),
+  // getSessions: () => api.get('/user/me/sessions'),
+  // list: (params) => api.get('/user', { params }),
   update: (id, data) => api.patch(`/user/${id}`, data),
   delete: (id) => api.delete(`/user/${id}`),
+  getAllUsers:     ()     => api.get('/user/allusers'),
+  getUsersByIds:   (ids)  => api.get('/user/usersByIds', { params: { ids } }),
 }

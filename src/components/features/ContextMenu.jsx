@@ -3,14 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Copy } from 'lucide-react';
 
 const ContextMenu = ({ show, x, y, onClose, onCopy }) => {
-  // Global click listener to close menu when clicking elsewhere
   useEffect(() => {
     if (!show) return;
-    
+
     const handleClick = () => onClose();
     window.addEventListener('click', handleClick);
-    window.addEventListener('contextmenu', handleClick); // Close if right-clicking elsewhere
-    
+    window.addEventListener('contextmenu', handleClick);
+
     return () => {
       window.removeEventListener('click', handleClick);
       window.removeEventListener('contextmenu', handleClick);
@@ -27,7 +26,6 @@ const ContextMenu = ({ show, x, y, onClose, onCopy }) => {
           transition={{ duration: 0.1 }}
           className="fixed z-50 min-w-[140px] bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1"
           style={{ top: y, left: x }}
-          // Stop propagation so clicking the menu itself doesn't trigger the global "onClose"
           onClick={(e) => e.stopPropagation()}
         >
           <button

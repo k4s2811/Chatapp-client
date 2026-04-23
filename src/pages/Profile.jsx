@@ -79,7 +79,7 @@ export default function Profile() {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <ThemeSelector />
-          <button className="p-2 hover:bg-sidebar-accent rounded-full transition-colors"><Pencil size={18} /></button>
+          {/* <button className="p-2 hover:bg-sidebar-accent rounded-full transition-colors"><Pencil size={18} /></button> */}
           {/* <button className="p-2 hover:bg-sidebar-accent rounded-full transition-colors"><MoreVertical size={18} /></button> */}
         </div>
       </div>

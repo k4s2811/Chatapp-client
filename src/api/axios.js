@@ -1,11 +1,10 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001/brr',
+  baseURL: '/',
   withCredentials: true,
 })
 
-// Attach access token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
   if (!config.headers) config.headers = {}
@@ -26,27 +25,23 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Auto-refresh on 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config || {}
 
-    // Prevent infinite loops
     if (!original || original._retry) {
       return Promise.reject(error)
     }
 
     if (error.response?.status === 401) {
       if (original.url === '/user/refresh') {
-        // Refresh itself failed clear everything
         localStorage.removeItem('accessToken')
         window.dispatchEvent(new Event('user:signout'))
         return Promise.reject(error)
       }
 
       if (isRefreshing) {
-        // Queue requests while refreshing
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         }).then((token) => {

@@ -1,138 +1,136 @@
-import { useState, useEffect, useCallback } from 'react';
-import { mockUsers, mockConversations, mockMessages } from '../data/mockData';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { io } from 'socket.io-client';
+import { chatApi } from '../api/chat';
+import { useAuth } from '../context/AuthContext';
 
 export const useChatLogic = () => {
-  const [conversations, setConversations] = useState(mockConversations);
-  const [users, setUsers] = useState(mockUsers);
-  const [messages, setMessages] = useState(mockMessages);
+  const { user } = useAuth(); // Get logged-in user details
+  const [conversations, setConversations] = useState([]);
+  const [messages, setMessages] = useState({});
   const [selectedConversationId, setSelectedConversationId] = useState(null);
-  const [typingUsers, setTypingUsers] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Store socket in a ref so it doesn't trigger re-renders
+  const socketRef = useRef(null);
 
+  // 1. Initialize Socket and Fetch Initial Data
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!user) return;
 
-  const getConversationUser = useCallback((conversationId) => {
-    const conversation = conversations.find(c => c.id === conversationId);
-    if (!conversation) return null;
-    return users.find(u => u.id === conversation.userId);
-  }, [conversations, users]);
+    // Connect to Chat Microservice via Socket.IO
+    const token = localStorage.getItem('accessToken');
+    socketRef.current = io('http://localhost:3002', {
+      auth: { token }
+    });
 
-  const getConversationMessages = useCallback((conversationId) => {
-    return messages[conversationId] || [];
+    // Setup Socket Listeners
+    socketRef.current.on('connect', () => console.log('Socket Connected!'));
+    
+    socketRef.current.on('new_message', (incomingMessage) => {
+      const convId = incomingMessage.conversationId;
+      
+      // Add message to the correct conversation thread
+      setMessages(prev => ({
+        ...prev,
+        [convId]: [...(prev[convId] || []), incomingMessage]
+      }));
+
+      // Update the sidebar snippet
+      setConversations(prev => prev.map(conv => 
+        conv._id === convId 
+          ? { 
+              ...conv, 
+              lastMessage: { content: incomingMessage.content.text, createdAt: incomingMessage.createdAt },
+              updatedAt: new Date()
+            }
+          : conv
+      ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
+    });
+
+    // Fetch initial sidebar conversations via REST
+    const loadSidebar = async () => {
+      try {
+        const res = await chatApi.getConversations();
+        setConversations(res.data.data);
+      } catch (err) {
+        console.error("Failed to load conversations", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSidebar();
+
+    // Cleanup on unmount
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, [user]);
+
+  // 2. Fetch Message History when clicking a chat
+  const selectConversation = useCallback(async (conversationId) => {
+    setSelectedConversationId(conversationId);
+    
+    // Join the socket room for typing indicators/read receipts
+    if (socketRef.current) {
+      socketRef.current.emit('join_conversation', conversationId);
+    }
+
+    // Only fetch REST history if we haven't loaded it yet
+    if (!messages[conversationId]) {
+      try {
+        const res = await chatApi.getMessages(conversationId);
+        setMessages(prev => ({
+          ...prev,
+          [conversationId]: res.data.data 
+        }));
+      } catch (err) {
+        console.error("Failed to fetch messages", err);
+      }
+    }
   }, [messages]);
 
+  // 3. Send Message via Socket
   const sendMessage = useCallback((conversationId, text) => {
-    const newMessage = {
-      id: Date.now(),
-      text,
-      senderId: "me",
-      timestamp: new Date(),
-      delivered: false,
-      read: false
+    if (!socketRef.current || !text.trim()) return;
+
+    const payload = {
+      conversationId,
+      text
+    };
+
+    // Emit instantly
+    socketRef.current.emit('send_message', payload, (response) => {
+      if (!response.success) {
+        console.error("Message failed to send", response.error);
+        // You could add logic here to mark a message with a red "!" icon
+      }
+    });
+
+    // Optimistic UI Update: Instantly show message on sender's screen
+    const optimisticMessage = {
+      _id: Date.now().toString(), // Temp ID
+      conversationId,
+      senderId: user.id, // From your Auth Context
+      content: { text },
+      createdAt: new Date(),
+      status: 'sending'
     };
 
     setMessages(prev => ({
       ...prev,
-      [conversationId]: [...(prev[conversationId] || []), newMessage]
+      [conversationId]: [...(prev[conversationId] || []), optimisticMessage]
     }));
 
-    // Update conversation's last message
-    setConversations(prev => 
-      prev.map(conv => 
-        conv.id === conversationId 
-          ? { ...conv, lastMessage: text, timestamp: new Date() }
-          : conv
-      )
-    );
-
-    // Simulate message delivery
-    setTimeout(() => {
-      setMessages(prev => ({
-        ...prev,
-        [conversationId]: prev[conversationId].map(msg =>
-          msg.id === newMessage.id ? { ...msg, delivered: true } : msg
-        )
-      }));
-    }, 500);
-
-    // Simulate typing response
-    const user = getConversationUser(conversationId);
-    if (user && user.online) {
-      setTimeout(() => {
-        setTypingUsers(prev => ({ ...prev, [conversationId]: true }));
-        setUsers(prev => prev.map(u => 
-          u.id === user.id ? { ...u, typing: true } : u
-        ));
-      }, 1000);
-
-      setTimeout(() => {
-        setTypingUsers(prev => ({ ...prev, [conversationId]: false }));
-        setUsers(prev => prev.map(u => 
-          u.id === user.id ? { ...u, typing: false } : u
-        ));
-        
-        const responses = [
-          "That sounds great!",
-          "I agree with you.",
-          "Let me think about that.",
-          "Sure thing!",
-          "Absolutely!"
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        
-        const responseMessage = {
-          id: Date.now(),
-          text: randomResponse,
-          senderId: user.id,
-          timestamp: new Date(),
-          delivered: true,
-          read: false
-        };
-
-        setMessages(prev => ({
-          ...prev,
-          [conversationId]: [...prev[conversationId], responseMessage]
-        }));
-
-        setConversations(prev => 
-          prev.map(conv => 
-            conv.id === conversationId 
-              ? { ...conv, lastMessage: randomResponse, timestamp: new Date(), unreadCount: conv.unreadCount + 1 }
-              : conv
-          )
-        );
-      }, 3000);
-    }
-  }, [conversations, getConversationUser]);
-
-  const markAsRead = useCallback((conversationId) => {
-    setConversations(prev => 
-      prev.map(conv => 
-        conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
-      )
-    );
-  }, []);
-
-  const selectConversation = useCallback((conversationId) => {
-    setSelectedConversationId(conversationId);
-    markAsRead(conversationId);
-  }, [markAsRead]);
+  }, [user]);
 
   return {
     conversations,
-    users,
     messages,
     selectedConversationId,
-    typingUsers,
     isLoading,
-    getConversationUser,
-    getConversationMessages,
     sendMessage,
-    selectConversation
+    selectConversation,
+    getConversationMessages: (id) => messages[id] || [],
   };
 };
-

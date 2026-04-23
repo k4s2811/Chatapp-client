@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { MoreVertical, Phone, Video } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
@@ -7,13 +7,13 @@ import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
 
-const ChatWindow = ({
+export default function ChatWindow({
     conversation,
     user,
     messages,
     onSendMessage,
     isTyping
-}) => {
+}) {
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
@@ -86,7 +86,7 @@ const ChatWindow = ({
             {/* Messages Area */}
             <main className="flex-1 flex flex-col relative overflow-hidden">
                 {/* Wallpaper Overlay */}
-                <div 
+                <div
                     className="absolute inset-0 z-0 pointer-events-none opacity-[0.05] dark:opacity-[0.08]"
                     style={{
                         backgroundImage: `var(--chat-pattern)`,
@@ -121,14 +121,12 @@ const ChatWindow = ({
             {/* Input Component - The 'key' forces a re-focus when switching chats */}
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">
                 <div className="max-w-5xl mx-auto w-full">
-                    <MessageInput 
-                        key={conversation.id} 
-                        onSend={onSendMessage} 
+                    <MessageInput
+                        key={conversation.id}
+                        onSend={onSendMessage}
                     />
                 </div>
             </footer>
         </div>
     );
 };
-
-export default ChatWindow;

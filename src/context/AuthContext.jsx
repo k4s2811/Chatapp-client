@@ -7,11 +7,17 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
 
+    const safeRedirect = () => {
+        if (window.location.pathname !== '/signin') {
+            window.location.href = '/signin'
+        }
+    }
+
     const signout = useCallback(async () => {
         try { await authApi.signout() } catch { }
         localStorage.removeItem('accessToken')
         setUser(null)
-        window.location.href = '/signin'
+        safeRedirect()
     }, [])
 
     // Listen for forced logout from axios interceptor
@@ -19,17 +25,20 @@ export const AuthProvider = ({ children }) => {
         const handler = () => {
             localStorage.removeItem('accessToken')
             setUser(null)
-            window.location.href = '/signin'
+            safeRedirect()
         }
         window.addEventListener('user:signout', handler)
         return () => window.removeEventListener('user:signout', handler)
     }, [])
 
     // Restore session on mount
-    // AuthContext.jsx
     useEffect(() => {
         const restore = async () => {
             const token = localStorage.getItem('accessToken')
+            if (!token) {
+                setLoading(false)
+                return
+            }
             try {
                 const res = await authApi.me()
                 setUser(res.data.data.user)
@@ -44,17 +53,14 @@ export const AuthProvider = ({ children }) => {
     // signin
     const signin = async (credentials) => {
         const res = await authApi.signin(credentials)
-        // if (credentials.remember) {
-            localStorage.setItem('accessToken', res.data.data.accessToken)
-            setUser(res.data.data.user)
-        // }
+        localStorage.setItem('accessToken', res.data.data.accessToken)
+        setUser(res.data.data.user)
         return res
     }
 
     // signup
     const signup = async (payload) => {
         const res = await authApi.signup(payload)
-
         if (res?.data?.data?.accessToken) {
             localStorage.setItem('accessToken', res.data.data.accessToken)
             setUser(res.data.data.user)

@@ -4,7 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Skeleton } from '../../components/ui/skeleton';
 import { ThemeToggle } from '../../css/ThemeToggle.jsx';
 import { formatDistanceToNow } from 'date-fns';
-import { NewChat } from '../../components/new-chat';
+// import { NewChat } from '../../components/new-chat';
+import { motion } from 'framer-motion';
 
 const ConversationSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -32,23 +33,27 @@ const Sidebar = ({
   const filteredAndSortedConversations = useMemo(() => {
     if (!conversations || !users) return [];
 
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    const searchLower = searchTerm?.toLowerCase();
+
     return [...conversations]
       .sort((a, b) => b.timestamp - a.timestamp)
-      .map(conversation => {
-        const user = users.find(u => u.id === conversation.userId);
-        return { ...conversation, user };
-      })
-      .filter(item => {
-        if (!item.user) return false;
-        if (searchTerm) {
-          const searchLower = searchTerm.toLowerCase();
+      .filter(conversation => {
+        const user = userMap.get(conversation.userId);
+        if (!user) return false;
+        if (searchLower) {
           return (
-            item.user.name.toLowerCase().includes(searchLower) ||
-            item.lastMessage.toLowerCase().includes(searchLower)
+            user.name.toLowerCase().includes(searchLower) ||
+            conversation.lastMessage.toLowerCase().includes(searchLower)
           );
         }
         return true;
-      });
+      })
+      .map(conversation => ({
+        ...conversation,
+        user: userMap.get(conversation.userId)
+      }));
   }, [conversations, users, searchTerm]);
 
   return (
@@ -66,7 +71,7 @@ const Sidebar = ({
           </h1>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <NewChat />
+            {/* <NewChat /> */}
           </div>
         </div>
 
@@ -102,10 +107,13 @@ const Sidebar = ({
             const isSelected = selectedConversationId === conversation.id;
 
             return (
-              <button
+              <motion.button
                 key={conversation.id}
+                whileTap={{ scale: 0.96, y: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                onContextMenu={(e) => e.preventDefault()}
                 onClick={() => onSelectConversation(conversation.id)}
-                className={`w-full flex items-center gap-3 p-4 
+                className={`w-full rounded-xl flex items-center gap-3 p-3 
                   border-b border-sidebar-border hover:bg-sidebar-accent 
                   hover:text-sidebar-accent-foreground transition-colors 
                   ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
@@ -147,7 +155,7 @@ const Sidebar = ({
                     )}
                   </div>
                 </div>
-              </button>
+              </motion.button>
             );
           })
         )}

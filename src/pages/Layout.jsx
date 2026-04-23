@@ -1,10 +1,12 @@
 import NavigationRail from "./NavigationRail";
 import Sidebar from "./chat/Sidebar";
 import ChatWindow from "./chat/ChatWindow";
-import { useChatLogic } from '../hooks/useChatLogic';
+// import { useChatLogic } from '../hooks/useChatLogic';
 import { useState } from "react";
 import Profile from "./Profile";
 import { useMode } from "./mode";
+import FindUsers from "./chat/FindUsers";
+import { useChatLogic } from '../hooks/logic';
 
 export default function Layout() {
 
@@ -38,7 +40,7 @@ export default function Layout() {
         <div className="h-screen w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
             <NavigationRail />
 
-            {(mode === 'chat' || mode === 'users' || mode === 'groups') && (
+            {(mode === 'chat' || mode === 'groups') && (
                 <>
                     <Sidebar
                         mode={mode} // Pass mode to Sidebar if it needs to switch views
@@ -47,6 +49,18 @@ export default function Layout() {
                         selectedConversationId={selectedConversationId}
                         onSelectConversation={selectConversation}
                         isLoading={isLoading}
+                    />
+                </>
+            )}
+
+            {(mode === 'users') && (
+                <>
+                    <FindUsers
+                        // mode={mode} // Pass mode to Sidebar if it needs to switch views
+                        // conversations={conversations}
+                        // users={users}
+                        // selectedConversationId={selectedConversationId}
+                        // onSelectConversation={selectConversation}
                     />
                 </>
             )}

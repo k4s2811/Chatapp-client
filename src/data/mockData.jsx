@@ -30,6 +30,38 @@ export const mockUsers = [
     online: false,
     typing: false,
     lastSeen: "1 day ago"
+  },
+  {
+    id: 5,
+    name: "Sarah Chen",
+    avatar: "https://images.unsplash.com/photo-1758600434324-41712d1f530e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMGZhY2UlMjBjbGVhbiUyMG5ldXRyYWwlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NTU4NTMwN3ww&ixlib=rb-4.1.0&q=85",
+    online: true,
+    typing: false,
+    lastSeen: null
+  },
+  {
+    id: 6,
+    name: "Marcus Webb",
+    avatar: "https://images.unsplash.com/photo-1758598497190-f609ecba227b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwyfHxwb3J0cmFpdCUyMGZhY2UlMjBjbGVhbiUyMG5ldXRyYWwlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NTU4NTMwN3ww&ixlib=rb-4.1.0&q=85",
+    online: false,
+    typing: false,
+    lastSeen: "2 hours ago"
+  },
+  {
+    id: 7,
+    name: "Emily Rodriguez",
+    avatar: "https://images.unsplash.com/photo-1618593167496-24fed8abacd3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHw0fHxwb3J0cmFpdCUyMGZhY2UlMjBjbGVhbiUyMG5ldXRyYWwlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NTU4NTMwN3ww&ixlib=rb-4.1.0&q=85",
+    online: true,
+    typing: false,
+    lastSeen: null
+  },
+  {
+    id: 8,
+    name: "David Kim",
+    avatar: "https://images.unsplash.com/photo-1637722883499-7782c2a64f07?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwzfHxwb3J0cmFpdCUyMGZhY2UlMjBjbGVhbiUyMG5ldXRyYWwlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NTU4NTMwN3ww&ixlib=rb-4.1.0&q=85",
+    online: false,
+    typing: false,
+    lastSeen: "1 day ago"
   }
 ];
 
@@ -58,6 +90,34 @@ export const mockConversations = [
   {
     id: 4,
     userId: 4,
+    lastMessage: "Let's catch up soon!",
+    timestamp: new Date(Date.now() - 48 * 60 * 60000),
+    unreadCount: 0
+  },
+  {
+    id: 5,
+    userId: 5,
+    lastMessage: "Sounds great! See you at 3pm.",
+    timestamp: new Date(Date.now() - 5 * 60000),
+    unreadCount: 2
+  },
+  {
+    id: 6,
+    userId: 6,
+    lastMessage: "Thanks for your help with the project!",
+    timestamp: new Date(Date.now() - 2 * 60 * 60000),
+    unreadCount: 0
+  },
+  {
+    id: 7,
+    userId: 7,
+    lastMessage: "Did you check the latest updates?",
+    timestamp: new Date(Date.now() - 24 * 60 * 60000),
+    unreadCount: 5
+  },
+  {
+    id: 8,
+    userId: 8,
     lastMessage: "Let's catch up soon!",
     timestamp: new Date(Date.now() - 48 * 60 * 60000),
     unreadCount: 0

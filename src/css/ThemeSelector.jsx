@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Palette, Check, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
@@ -26,7 +26,6 @@ export const ThemeSelector = () => {
       >
         <Palette size={16} className="text-primary" />
         <span className="text-xs font-semibold">Palette</span>
-        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </Button>
 
       <AnimatePresence>
@@ -38,9 +37,13 @@ export const ThemeSelector = () => {
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-52 rounded-2xl bg-popover border border-border shadow-xl z-40 p-1.5 backdrop-blur-md"
+              className="absolute right-0 mt-2 w-52 rounded-2xl 
+              bg-popover border border-border shadow-xl z-40 p-1.5 
+              backdrop-blur-md"
             >
-              <div className="px-2 py-2 mb-1 text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/50">
+              <div className="px-2 py-2 mb-1 text-[10px] font-bold 
+              text-muted-foreground uppercase tracking-widest 
+              border-b border-border/50">
                 Choose Palette
               </div>
               
