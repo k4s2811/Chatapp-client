@@ -8,6 +8,7 @@ import { ChatProvider } from './context/ChatContext'
 import { SocketProvider } from './context/SocketContext'
 import MyFallbackComponent from './pages/errorPage'
 import Layout from './pages/Layout.jsx';
+import { ConversationProvider } from './context/ConversationContext'
 
 import AuthPage from './pages/auth/authpage'
 import { ModeProvider } from './pages/mode';
@@ -22,6 +23,7 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
+            <ConversationProvider>
             <ChatProvider>
               <BrowserRouter>
                 <Routes>
@@ -46,6 +48,7 @@ export default function App() {
                 </Routes>
               </BrowserRouter>
             </ChatProvider>
+            </ConversationProvider>
           </SocketProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -1,80 +1,125 @@
-import { createContext, useContext, useEffect, useState } from "react";
-
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { conversationApi } from "../api/conversationApi";
+import { useAuth } from "./AuthContext";
+import { useSocket } from "./SocketContext";
 
 const ConversationContext = createContext(null);
 
 export const ConversationProvider = ({ children }) => {
-
+    const { user: currentUser, getAllUsers } = useAuth();
+    const { socket } = useSocket();
+    
     const [conversations, setConversations] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // LOAD CONVERSATIONS
+    // Fetch conversations and all users for the Sidebar mapping
     useEffect(() => {
-        loadConversations();
-    }, []);
+        if (!currentUser) return;
 
-    const loadConversations = async () => {
-        try {
-            setLoading(true);
-            const res = await conversationApi.getConversations();
-            setConversations(res.data.data);
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const [convRes, usersRes] = await Promise.all([
+                    conversationApi.getConversations(),
+                    getAllUsers()
+                ]);
+                
+                setConversations(convRes.data?.data || convRes.data || []);
+                setAllUsers(usersRes.data?.data || usersRes.data || []);
+            } catch (err) {
+                console.error("Failed to fetch sidebar data:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchData();
+    }, [currentUser, getAllUsers]);
 
-    // START CONVERSATION
-    const startConversation = async (targetUserId) => {
-        try {
-            const res = await conversationApi.createOrGetConversation(targetUserId);
-            const conversation = res.data.data;
-            setActiveConversation(conversation);
+    // Listen to Socket to bump conversations to top and update Last Message
+    useEffect(() => {
+        if (!socket) return;
 
+        const handleNewMessage = (message) => {
             setConversations((prev) => {
-                const exists = prev.some((c) => c._id === conversation._id);
-                if (exists) {
+                const updated = [...prev];
+                const index = updated.findIndex(c => c._id === message.conversationId);
+                
+                if (index > -1) {
+                    const conv = updated[index];
+                    conv.lastMessage = {
+                        messageId: message._id || message.clientMessageId,
+                        content: message.text || message.content?.text || "[Attachment]",
+                        senderId: message.senderId,
+                        createdAt: message.createdAt || new Date().toISOString()
+                    };
+                    // Remove from old position and push to top
+                    updated.splice(index, 1);
+                    updated.unshift(conv);
+                    return updated;
+                } else {
+                    // If it's a brand new conversation not in state, trigger a re-fetch
+                    conversationApi.getConversations().then(res => {
+                        setConversations(res.data?.data || res.data || []);
+                    });
                     return prev;
                 }
-                return [conversation, ...prev];
             });
+        };
 
-            return conversation;
+        socket.on("new_message", handleNewMessage);
+        return () => socket.off("new_message", handleNewMessage);
+    }, [socket]);
 
+    // The central function to start or switch chats
+    const startOrSelectConversation = async (targetUser) => {
+        const formattedUser = {
+            id: targetUser._id || targetUser.id,
+            name: targetUser.name || targetUser.email?.split('@')[0] || 'User',
+            avatar: targetUser.avatar_url || targetUser.avatar || null,
+        };
+        
+        setSelectedUser(formattedUser);
+
+        try {
+            const res = await conversationApi.createOrGetConversation(formattedUser.id);
+            const conversationData = res.data?.data || res.data;
+            const convId = conversationData._id || conversationData.id;
+            
+            setActiveConversation(convId);
+            
+            // If this was a brand new DM, refresh the sidebar list
+            if (!conversations.find(c => c._id === convId)) {
+                const refreshRes = await conversationApi.getConversations();
+                setConversations(refreshRes.data?.data || refreshRes.data || []);
+            }
         } catch (err) {
-            console.error(err);
+            console.error("Error routing conversation:", err);
         }
     };
 
     return (
-        <ConversationContext.Provider
-            value={{
-                conversations,
-                setConversations,
-                activeConversation,
-                setActiveConversation,
-                startConversation,
-                loading
-            }}
-        >
+        <ConversationContext.Provider value={{
+            conversations,
+            setConversations,
+            allUsers,
+            activeConversation,
+            setActiveConversation,
+            selectedUser,
+            setSelectedUser,
+            startOrSelectConversation,
+            isLoading
+        }}>
             {children}
         </ConversationContext.Provider>
     );
 };
 
 export const useConversation = () => {
-
     const context = useContext(ConversationContext);
-
-    if (!context) {
-        throw new Error(
-            "useConversation must be used inside provider"
-        );
-    }
-
+    if (!context) throw new Error("useConversation must be used inside Provider");
     return context;
 };
