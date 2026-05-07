@@ -3,7 +3,6 @@ import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
 import { ThemeToggle } from '../../css/ThemeToggle.jsx';
-import { NewChat } from '../../components/new-chat';
 import { usersApi } from '../../api/auth';
 
 const UserSkeleton = () => (
@@ -17,8 +16,8 @@ const UserSkeleton = () => (
 );
 
 const FindUsers = ({
-  // selectedUserId,
-  // onSelectUser, // Changed to handle user selection instead of conversation
+  selectedUserId,
+  onSelectUser,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState([]);
@@ -52,7 +51,7 @@ const FindUsers = ({
     return users.filter(user => {
       if (searchLower) {
         return (
-          user.email.split('@')[0]?.toLowerCase().includes(searchLower) ||
+          user?.email?.split('@')[0]?.toLowerCase().includes(searchLower) ||
           user.bio?.toLowerCase().includes(searchLower)
         );
       }
@@ -75,7 +74,6 @@ const FindUsers = ({
           </h1>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <NewChat />
           </div>
         </div>
 
@@ -114,18 +112,18 @@ const FindUsers = ({
           </div>
         ) : (
           filteredUsers.map((user) => {
-            // const isSelected = selectedUserId === user.id;
-            // ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
-            //       }
+            const isSelected = selectedUserId === user.id;
             return (
               <button
                 onContextMenu={(e) => e.preventDefault()}
                 key={user.id}
-                // onClick={() => onSelectUser(user.id)}
+                onClick={() => onSelectUser(user.id)}
                 className={`w-full rounded-lg flex items-center gap-3 p-3 
                   border-b border-sidebar-border hover:bg-sidebar-accent 
                   hover:text-sidebar-accent-foreground transition-colors text-left
-                  `}
+                   ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                  }
+                `}
                 data-testid={`user-item-${user.id}`}
               >
                 <div className="relative shrink-0">
