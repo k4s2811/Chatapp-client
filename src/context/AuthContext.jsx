@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { authApi } from '../api/auth'
+import { usersApi } from '../api/auth'
 
 const AuthContext = createContext(null)
 
@@ -68,8 +69,24 @@ export const AuthProvider = ({ children }) => {
         return res
     }
 
+    const updateProfile = async (payload) => {
+        const res = await authApi.updateProfile(payload)
+        setUser(res.data.data.user)
+        return res
+    }
+
+    const getAllUsers = async () => {
+        const res = await usersApi.getAllUsers()
+        return res
+    }
+
+    const getUserById = async (id) => {
+        const res = await usersApi.getUsersByIds([id])
+        return res
+    }
+
     return (
-        <AuthContext.Provider value={{ user, setUser, signin, signup, signout, loading }}>
+        <AuthContext.Provider value={{ user, setUser, signin, signup, signout, updateProfile, getAllUsers, getUserById, loading }}>
             {children}
         </AuthContext.Provider>
     )

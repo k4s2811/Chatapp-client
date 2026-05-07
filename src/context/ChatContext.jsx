@@ -1,218 +1,149 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useSocket } from "./SocketContext";
+import { useAuth } from "./AuthContext"; // <-- 1. Import useAuth
 
 const ChatContext = createContext(null);
 
 export const ChatProvider = ({ children }) => {
-
     const { socket } = useSocket();
+    const { user } = useAuth(); // <-- 2. Get the logged-in user
+    
     const [messages, setMessages] = useState([]);
     const [typingUsers, setTypingUsers] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);
 
-    // JOIN ROOM
+    // Keep a fresh reference of the active conversation for socket listeners
+    const activeConvRef = useRef(activeConversation);
     useEffect(() => {
+        activeConvRef.current = activeConversation;
+    }, [activeConversation]);
 
+    // ROOM MANAGEMENT: Join and Leave
+    useEffect(() => {
         if (!socket || !activeConversation) return;
+
         socket.emit("join_conversation", activeConversation);
 
         return () => {
             socket.emit("leave_conversation", activeConversation);
         };
-
     }, [socket, activeConversation]);
 
     // SOCKET LISTENERS
     useEffect(() => {
-
         if (!socket) return;
 
-        // NEW MESSAGE
-        socket.on("new_message", (message) => {
+        // NEW MESSAGE LISTENER
+        const handleNewMessage = (message) => {
+            if (message.conversationId !== activeConvRef.current) return;
+
             setMessages((prev) => {
-                const exists = prev.some((m) => m.clientMessageId === message.clientMessageId);
-                if (exists) {
-                    return prev;
-                }
+                const exists = prev.some((m) => 
+                    m.clientMessageId === message.clientMessageId || 
+                    m._id === message._id
+                );
+                if (exists) return prev;
                 return [...prev, message];
             });
-        }
-        );
+        };
 
-        // TYPING
-        socket.on("typing", ({ userId, isTyping }) => {
+        // TYPING LISTENER
+        const handleTyping = ({ userId, isTyping, conversationId }) => {
+            if (conversationId !== activeConvRef.current) return;
 
             setTypingUsers((prev) => {
-
                 if (isTyping) {
-
-                    if (
-                        prev.includes(userId)
-                    ) {
-                        return prev;
-                    }
-
-                    return [
-                        ...prev,
-                        userId
-                    ];
+                    return prev.includes(userId) ? prev : [...prev, userId];
                 }
-
-                return prev.filter(
-                    (id) =>
-                        id !== userId
-                );
+                return prev.filter((id) => id !== userId);
             });
-        }
-        );
+        };
 
-        // READ RECEIPT
-        socket.on("messages_read", ({ messageId, readByUserId }) => {
-
+        // READ RECEIPT LISTENER
+        const handleMessagesRead = ({ messageId, readByUserId }) => {
             setMessages((prev) =>
                 prev.map((msg) => {
-
-                    if (
-                        msg._id === messageId
-                    ) {
-
+                    if (msg._id === messageId) {
                         return {
                             ...msg,
-
-                            readBy: [
-                                ...(msg.readBy || []),
-                                readByUserId
-                            ]
+                            readBy: [...(msg.readBy || []), readByUserId]
                         };
                     }
-
                     return msg;
                 })
             );
-        }
-        );
-
-        return () => {
-
-            socket.off("new_message");
-
-            socket.off("typing");
-
-            socket.off("messages_read");
         };
 
+        socket.on("new_message", handleNewMessage);
+        socket.on("typing", handleTyping);
+        socket.on("messages_read", handleMessagesRead);
+
+        return () => {
+            socket.off("new_message", handleNewMessage);
+            socket.off("typing", handleTyping);
+            socket.off("messages_read", handleMessagesRead);
+        };
     }, [socket]);
 
-    // SEND MESSAGE
+    // ACTION: SEND MESSAGE
     const sendMessage = ({ conversationId, text, attachments = [] }) => {
-
         if (!socket) return;
 
+        // Extract ID safely
+        const currentUserId = user?.id || user?._id;
+
         const tempMessage = {
-
             conversationId,
-
             text,
-
             attachments,
-
-            clientMessageId:
-                crypto.randomUUID(),
-
-            createdAt:
-                new Date().toISOString(),
-
+            senderId: currentUserId, // <-- 3. CRITICAL FIX: Attach your ID to the Optimistic UI!
+            clientMessageId: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
             sending: true
         };
 
-        // OPTIMISTIC UI
-        setMessages((prev) => [
-            ...prev,
-            tempMessage
-        ]);
+        // Optimistic UI Update
+        setMessages((prev) => [...prev, tempMessage]);
 
         socket.emit("send_message", tempMessage, (response) => {
-
-            if (!response.success) {
-
-                // FAILED
-                setMessages((prev) =>
-                    prev.map((msg) => {
-
-                        if (
-                            msg.clientMessageId ===
-                            tempMessage.clientMessageId
-                        ) {
-
-                            return {
-                                ...msg,
-                                failed: true,
-                                sending: false
-                            };
-                        }
-
-                        return msg;
-                    })
-                );
-
-                return;
-            }
-
-            // SUCCESS
             setMessages((prev) =>
                 prev.map((msg) => {
-
-                    if (
-                        msg.clientMessageId ===
-                        tempMessage.clientMessageId
-                    ) {
-
+                    if (msg.clientMessageId === tempMessage.clientMessageId) {
                         return {
                             ...msg,
                             sending: false,
-                            _id: response.messageId
+                            failed: !response.success,
+                            _id: response.messageId || msg._id
                         };
                     }
-
                     return msg;
                 })
             );
-        }
-        );
+        });
     };
 
-    // TYPING
+    // ACTION: SEND TYPING STATUS
     const sendTyping = (conversationId, isTyping) => {
-
         if (!socket) return;
-
         socket.emit("typing", { conversationId, isTyping });
     };
 
-    // MARK READ
+    // ACTION: MARK MESSAGES AS READ
     const markAsRead = (conversationId, messageId) => {
-
         if (!socket) return;
-
         socket.emit("mark_read", { conversationId, messageId });
     };
 
     return (
         <ChatContext.Provider
             value={{
-
                 messages,
                 setMessages,
-
                 typingUsers,
-
                 activeConversation,
                 setActiveConversation,
-
                 sendMessage,
-
                 sendTyping,
-
                 markAsRead
             }}
         >
@@ -222,12 +153,9 @@ export const ChatProvider = ({ children }) => {
 };
 
 export const useChat = () => {
-
     const context = useContext(ChatContext);
-
     if (!context) {
-        throw new Error("useChat must be used inside provider");
+        throw new Error("useChat must be used inside a ChatProvider");
     }
-
     return context;
 };

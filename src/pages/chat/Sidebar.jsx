@@ -4,8 +4,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Skeleton } from '../../components/ui/skeleton';
 import { ThemeToggle } from '../../css/ThemeToggle.jsx';
 import { formatDistanceToNow } from 'date-fns';
-// import { NewChat } from '../../components/new-chat';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
+import { useConversation } from '../../context/ConversationContext';
 
 const ConversationSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -17,140 +18,129 @@ const ConversationSkeleton = () => (
   </div>
 );
 
-const Sidebar = ({
-  conversations,
-  users,
-  selectedConversationId,
-  onSelectConversation,
-  isLoading
-}) => {
+const Sidebar = () => {
+  const { user: currentUser } = useAuth();
+  const { 
+      conversations, 
+      allUsers, 
+      activeConversation, 
+      startOrSelectConversation, 
+      isLoading 
+  } = useConversation();
+  
   const [searchTerm, setSearchTerm] = useState('');
 
-  const formatTime = (date) => {
-    return formatDistanceToNow(date, { addSuffix: true });
+  const formatTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+        return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch { return ''; }
   };
 
-  const filteredAndSortedConversations = useMemo(() => {
-    if (!conversations || !users) return [];
+  const formattedConversations = useMemo(() => {
+    if (!conversations.length || !allUsers.length || !currentUser) return [];
 
-    const userMap = new Map(users.map(u => [u.id, u]));
+    const currentUserId = currentUser.id || currentUser._id;
+    const searchLower = searchTerm.toLowerCase();
 
-    const searchLower = searchTerm?.toLowerCase();
+    return conversations
+      .map(conv => {
+        // Find the OTHER participant in this DB conversation document
+        const otherParticipant = conv.participants?.find(p => p.userId !== currentUserId);
+        const otherUserDb = allUsers.find(u => (u.id || u._id) === otherParticipant?.userId);
 
-    return [...conversations]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .filter(conversation => {
-        const user = userMap.get(conversation.userId);
-        if (!user) return false;
-        if (searchLower) {
-          return (
-            user.name.toLowerCase().includes(searchLower) ||
-            conversation.lastMessage.toLowerCase().includes(searchLower)
-          );
-        }
-        return true;
+        if (!otherUserDb) return null;
+
+        const displayName = otherUserDb.name || otherUserDb.email?.split('@')[0] || 'Unknown';
+        const lastMessageText = conv.lastMessage?.content || "Started a conversation";
+        
+        // Very basic unread simulation - You can upgrade this with DB values later
+        const unreadCount = conv.lastMessage?.senderId !== currentUserId && conv.lastMessage?.senderId ? 1 : 0;
+
+        return {
+          id: conv._id,
+          rawUser: otherUserDb, // Keep raw user object to pass to layout on click
+          displayName,
+          avatar: otherUserDb.avatar_url,
+          lastMessageText,
+          timestamp: conv.lastMessage?.createdAt || conv.createdAt,
+          unreadCount
+        };
       })
-      .map(conversation => ({
-        ...conversation,
-        user: userMap.get(conversation.userId)
-      }));
-  }, [conversations, users, searchTerm]);
+      .filter(Boolean) // Remove nulls
+      .filter(item => {
+        if (!searchTerm) return true;
+        return (
+          item.displayName.toLowerCase().includes(searchLower) ||
+          item.lastMessageText.toLowerCase().includes(searchLower)
+        );
+      })
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [conversations, allUsers, currentUser, searchTerm]);
 
   return (
     <div className="w-[320px] md:w-[380px] flex flex-col 
     border-r border-sidebar-border shrink-0 bg-sidebar 
     text-sidebar-foreground h-screen" data-testid="sidebar">
 
-      {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl sm:text-2xl font-semibold 
-          tracking-tight text-sidebar-foreground"
-            style={{ fontFamily: 'Manrope, sans-serif' }}>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Chats
           </h1>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            {/* <NewChat /> */}
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 
-          text-muted-foreground" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
             type="text"
             placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-full bg-muted 
-            border-none focus:outline-none focus:ring-2 focus:ring-ring 
-            text-foreground placeholder:text-muted-foreground transition-shadow"
-            data-testid="search-conversations-input"
-            aria-label="Search conversations"
+            className="w-full pl-10 pr-4 py-2 rounded-full bg-muted border-none focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
           />
         </div>
       </div>
 
-      {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto" data-testid="conversations-list">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           Array.from({ length: 5 }).map((_, i) => <ConversationSkeleton key={i} />)
-        ) : filteredAndSortedConversations.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
-            No conversations found.
-          </div>
+        ) : formattedConversations.length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground">No conversations found.</div>
         ) : (
-          filteredAndSortedConversations.map((item) => {
-            const { user, ...conversation } = item;
-            const isSelected = selectedConversationId === conversation.id;
+          formattedConversations.map((chat) => {
+            const isSelected = activeConversation === chat.id;
 
             return (
               <motion.button
-                key={conversation.id}
-                whileTap={{ scale: 0.96, y: 1 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                onContextMenu={(e) => e.preventDefault()}
-                onClick={() => onSelectConversation(conversation.id)}
-                className={`w-full rounded-xl flex items-center gap-3 p-3 
-                  border-b border-sidebar-border hover:bg-sidebar-accent 
-                  hover:text-sidebar-accent-foreground transition-colors 
-                  ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
-                  }`}
-                data-testid={`conversation-item-${conversation.id}`}
+                key={chat.id}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => startOrSelectConversation(chat.rawUser)}
+                className={`w-full rounded-xl flex items-center gap-3 p-3 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors text-left ${isSelected ? 'bg-sidebar-accent' : ''}`}
               >
                 <div className="relative shrink-0">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="bg-muted text-muted-foreground">{user.name[0]}</AvatarFallback>
+                    <AvatarImage src={chat.avatar} alt={chat.displayName} />
+                    <AvatarFallback className="bg-muted text-muted-foreground uppercase">{chat.displayName[0]}</AvatarFallback>
                   </Avatar>
-                  {user.online && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 
-                    bg-online border-2 border-sidebar rounded-full" />
-                  )}
                 </div>
 
-                <div className="flex-1 min-w-0 text-left">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium truncate">
-                      {user.name}
-                    </h3>
+                    <h3 className="font-medium truncate">{chat.displayName}</h3>
                     <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                      {formatTime(conversation.timestamp)}
+                      {formatTime(chat.timestamp)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground truncate flex-1">
-                      {conversation.lastMessage}
-                    </p>
-                    {conversation.unreadCount > 0 && (
-                      <span className="ml-2 shrink-0 min-w-[20px] h-5 px-2 
-                      flex items-center justify-center bg-primary 
-                      text-primary-foreground text-xs font-medium rounded-full"
-                        data-testid={`unread-count-${conversation.id}`}>
-                        {conversation.unreadCount}
+                    <p className="text-sm text-muted-foreground truncate flex-1">{chat.lastMessageText}</p>
+                    {chat.unreadCount > 0 && !isSelected && (
+                      <span className="ml-2 shrink-0 min-w-[20px] h-5 px-2 flex items-center justify-center bg-primary text-primary-foreground text-xs font-medium rounded-full">
+                        {chat.unreadCount}
                       </span>
                     )}
                   </div>

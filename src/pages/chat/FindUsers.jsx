@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
 import { ThemeToggle } from '../../css/ThemeToggle.jsx';
-import { usersApi } from '../../api/auth';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 const UserSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -21,6 +21,7 @@ const FindUsers = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState([]);
+  const { getAllUsers } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -29,8 +30,8 @@ const FindUsers = ({
     const fetchUsers = async () => {
       setIsLoading(true);
       try {
-        const res = await usersApi.getAllUsers();
-        setUsers(res.data?.data || []);
+        const res = await getAllUsers(); 
+        setUsers(res?.data?.data || res?.data || []);
       } catch (err) {
         console.error(err);
         setError(err?.response?.data?.message || 'Failed to fetch users');
@@ -40,7 +41,7 @@ const FindUsers = ({
     };
 
     fetchUsers();
-  }, []);
+  }, [getAllUsers]);
 
   // Filter users based on search term
   const filteredUsers = useMemo(() => {
@@ -52,7 +53,7 @@ const FindUsers = ({
       if (searchLower) {
         return (
           user?.email?.split('@')[0]?.toLowerCase().includes(searchLower) ||
-          user.bio?.toLowerCase().includes(searchLower)
+          user?.bio?.toLowerCase().includes(searchLower)
         );
       }
       return true;
@@ -112,42 +113,37 @@ const FindUsers = ({
           </div>
         ) : (
           filteredUsers.map((user) => {
-            const isSelected = selectedUserId === user.id;
+            const userId = user.id || user._id;
+            const isSelected = selectedUserId === userId;
+            
             return (
               <button
                 onContextMenu={(e) => e.preventDefault()}
-                key={user.id}
-                onClick={() => onSelectUser(user.id)}
+                key={userId}
+                // FIXED: Pass the entire user object securely
+                onClick={() => onSelectUser?.(user)} 
                 className={`w-full rounded-lg flex items-center gap-3 p-3 
                   border-b border-sidebar-border hover:bg-sidebar-accent 
                   hover:text-sidebar-accent-foreground transition-colors text-left
-                   ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
-                  }
+                   ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
                 `}
-                data-testid={`user-item-${user.id}`}
+                data-testid={`user-item-${userId}`}
               >
                 <div className="relative shrink-0">
                   <Avatar className="h-12 w-12">
-                    {/* Using avatar_url from your backend response */}
-                    <AvatarImage src={user.avatar_url || undefined} alt={user.name || 'User'} />
+                    <AvatarImage src={user.avatar_url || undefined} alt={user.email || 'User'} />
                     <AvatarFallback className="bg-muted text-muted-foreground uppercase">
-                      {user.name ? user.name[0] : '?'}
+                      {user.email ? user.email[0] : '?'}
                     </AvatarFallback>
                   </Avatar>
-                  {/* Using is_active from your backend response */}
-                  {/* {user.is_active && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 
-                    bg-green-500 border-2 border-sidebar rounded-full" />
-                  )} */}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-medium truncate">
-                      {user.email.split('@')[0]}
+                      {user.email?.split('@')[0] || 'Unknown'}
                     </h3>
                   </div>
-                  {/* Showing bio instead of lastMessage */}
                   <p className="text-sm text-muted-foreground truncate">
                     {user.bio || 'No bio available'}
                   </p>
