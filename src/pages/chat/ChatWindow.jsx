@@ -6,16 +6,16 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
-import { useAuth } from '../../context/AuthContext'; // <-- Added AuthContext to check user ID
+import { useAuth } from '../../context/AuthContext'; 
 
 export default function ChatWindow({
     conversation,
-    user, // The target user you are chatting with
+    user, 
     messages = [], 
     onSendMessage,
-    isTyping
+    isTyping,
+    onTyping // <-- Added prop
 }) {
-    // GET LOGGED IN USER
     const { user: currentUser } = useAuth(); 
 
     const messagesEndRef = useRef(null);
@@ -25,12 +25,10 @@ export default function ChatWindow({
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Scroll to bottom whenever messages or typing state changes
     useEffect(() => {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    // Show empty state if no user/conversation is selected yet
     if (!conversation || !user) {
         return (
             <div className="flex-1 h-full bg-background flex items-center justify-center">
@@ -39,15 +37,12 @@ export default function ChatWindow({
         );
     }
 
-    // Safe fallbacks for UI
     const userName = user?.name || user?.email?.split('@')[0] || 'Unknown User';
     const userInitial = userName.charAt(0).toUpperCase();
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden"
-            data-testid="chat-window">
+        <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden" data-testid="chat-window">
 
-            {/* Header - Glass effect */}
             <header className="backdrop-blur-xl bg-background/80 border-b border-border px-6 py-4 z-20 sticky top-0">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -89,9 +84,7 @@ export default function ChatWindow({
                 </div>
             </header>
 
-            {/* Messages Area */}
             <main className="flex-1 flex flex-col relative overflow-hidden">
-                {/* Wallpaper Overlay */}
                 <div
                     className="absolute inset-0 z-0 pointer-events-none opacity-[0.05] dark:opacity-[0.08]"
                     style={{
@@ -107,18 +100,14 @@ export default function ChatWindow({
                 >
                     <div className="flex flex-col space-y-3 max-w-5xl mx-auto w-full">
                         {messages.map((message) => {
-                            // SAFELY EXTRACT YOUR ID (Handles Mongoose _id vs SQL id)
                             const currentUserId = currentUser?.id || currentUser?._id;
-                            
-                            // CHECK OWNERSHIP
-                            // If the senderId matches your ID, or if it is currently 'sending' (optimistic UI), it belongs to you.
                             const isMyMessage = message.senderId === currentUserId || message.sending;
 
                             return (
                                 <MessageBubble
                                     key={message._id || message.clientMessageId || Math.random()}
                                     message={message}
-                                    isOwn={isMyMessage} // PASS ALIGNMENT TRUE/FALSE
+                                    isOwn={isMyMessage} 
                                 />
                             );
                         })}
@@ -133,12 +122,12 @@ export default function ChatWindow({
                 </div>
             </main>
 
-            {/* Input Component - The 'key' forces a re-focus when switching chats */}
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">
                 <div className="max-w-5xl mx-auto w-full">
                     <MessageInput
                         key={conversation?.id || conversation?._id || 'default'}
                         onSend={onSendMessage}
+                        onTyping={onTyping} // <-- Passed down to input
                     />
                 </div>
             </footer>

@@ -1,21 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../../components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 
-const MessageInput = ({ onSend, disabled }) => {
+const MessageInput = ({ onSend, disabled, onTyping }) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef(null);
+  const typingTimeoutRef = useRef(null); 
 
   useEffect(() => {
-    if (!disabled) {
-      textareaRef.current?.focus();
-    }
+    if (!disabled) textareaRef.current?.focus();
   }, [disabled]);
 
   const autoResize = () => {
@@ -28,6 +22,18 @@ const MessageInput = ({ onSend, disabled }) => {
   const handleChange = (e) => {
     setMessage(e.target.value);
     autoResize();
+
+    // Tell the server we are typing!
+    if (onTyping && !disabled) {
+      onTyping(true); 
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      
+      // Stop typing indicator after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 2000);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -35,6 +41,13 @@ const MessageInput = ({ onSend, disabled }) => {
     if (message.trim() && !disabled) {
       onSend(message.trim());
       setMessage('');
+      
+      // Stop typing indicator immediately when message is sent
+      if (onTyping) {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        onTyping(false);
+      }
+
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
         textareaRef.current.focus(); 
@@ -54,31 +67,16 @@ const MessageInput = ({ onSend, disabled }) => {
       <div className="bg-transparent px-4 py-3 z-10">
         <form onSubmit={handleSubmit} className="flex items-end gap-2 max-w-5xl mx-auto">
           
-          {/* Attachment Button */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95"
-                disabled={disabled}
-              >
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95" disabled={disabled}>
                 <Paperclip size={18} />
               </Button>
             </TooltipTrigger>
             <TooltipContent sideOffset={5}><p>Attach file</p></TooltipContent>
           </Tooltip>
 
-          {/* Input Pill - Enhanced with Glassmorphism and Focus Glow */}
-          <div className={`
-            flex-1 relative flex items-end 
-            bg-muted/50 backdrop-blur-md 
-            rounded-3xl border border-border/50
-            transition-all duration-200
-            focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10
-            ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-border'}
-          `}>
+          <div className={`flex-1 relative flex items-end bg-muted/50 backdrop-blur-md rounded-3xl border border-border/50 transition-all duration-200 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-border'}`}>
             <textarea
               ref={textareaRef}
               value={message}
@@ -93,13 +91,7 @@ const MessageInput = ({ onSend, disabled }) => {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 bottom-1 h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors active:scale-90"
-                  disabled={disabled}
-                >
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 bottom-1 h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors active:scale-90" disabled={disabled}>
                   <Smile size={18} />
                 </Button>
               </TooltipTrigger>
@@ -109,14 +101,7 @@ const MessageInput = ({ onSend, disabled }) => {
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                type="submit"
-                disabled={!message.trim() || disabled}
-                className={`
-                  shrink-0 h-10 w-10 rounded-full transition-all active:scale-90
-                  ${message.trim() ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground'}
-                `}
-              >
+              <Button type="submit" disabled={!message.trim() || disabled} className={`shrink-0 h-10 w-10 rounded-full transition-all active:scale-90 ${message.trim() ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground'}`}>
                 <Send size={16} className={`${message.trim() ? 'text-primary-foreground translate-x-0.5' : ''}`} />
               </Button>
             </TooltipTrigger>
