@@ -20,6 +20,8 @@ const ConversationSkeleton = () => (
 
 const Sidebar = () => {
   const { user: currentUser } = useAuth();
+  
+  // 1. Pull the getConversations data directly from the new Context!
   const { 
       conversations, 
       allUsers, 
@@ -38,28 +40,40 @@ const Sidebar = () => {
   };
 
   const formattedConversations = useMemo(() => {
-    if (!conversations.length || !allUsers.length || !currentUser) return [];
+    if (!conversations?.length || !allUsers?.length || !currentUser) return [];
 
     const currentUserId = currentUser.id || currentUser._id;
     const searchLower = searchTerm.toLowerCase();
 
     return conversations
       .map(conv => {
-        // Find the OTHER participant in this DB conversation document
-        const otherParticipant = conv.participants?.find(p => p.userId !== currentUserId);
-        const otherUserDb = allUsers.find(u => (u.id || u._id) === otherParticipant?.userId);
+        // TYPE-SAFE FIND: Find the other person in the chat
+        const otherParticipant = conv.participants?.find(p => String(p.userId) !== String(currentUserId));
+        const otherUserDb = allUsers.find(u => String(u.id || u._id) === String(otherParticipant?.userId));
 
         if (!otherUserDb) return null;
 
         const displayName = otherUserDb.name || otherUserDb.email?.split('@')[0] || 'Unknown';
         const lastMessageText = conv.lastMessage?.content || "Started a conversation";
         
-        // Very basic unread simulation - You can upgrade this with DB values later
-        const unreadCount = conv.lastMessage?.senderId !== currentUserId && conv.lastMessage?.senderId ? 1 : 0;
+        let unreadCount = conv.unreadCount || 0; 
+
+        // Verify against database if local socket hasn't caught anything yet
+        if (unreadCount === 0 && conv.isReadLocally !== true) {
+            const myParticipant = conv.participants?.find(p => String(p.userId) === String(currentUserId));
+            
+            if (
+                conv.lastMessage?.senderId && 
+                String(conv.lastMessage.senderId) !== String(currentUserId) && 
+                String(conv.lastMessage.messageId) !== String(myParticipant?.lastReadMessageId)
+            ) {
+                unreadCount = 1;
+            }
+        }
 
         return {
-          id: conv._id,
-          rawUser: otherUserDb, // Keep raw user object to pass to layout on click
+          id: conv._id || conv.id,
+          rawUser: otherUserDb, 
           displayName,
           avatar: otherUserDb.avatar_url,
           lastMessageText,
@@ -67,7 +81,7 @@ const Sidebar = () => {
           unreadCount
         };
       })
-      .filter(Boolean) // Remove nulls
+      .filter(Boolean) 
       .filter(item => {
         if (!searchTerm) return true;
         return (
@@ -112,7 +126,8 @@ const Sidebar = () => {
           <div className="p-4 text-center text-muted-foreground">No conversations found.</div>
         ) : (
           formattedConversations.map((chat) => {
-            const isSelected = activeConversation === chat.id;
+            // Type-Safe selection highlight
+            const isSelected = String(activeConversation) === String(chat.id);
 
             return (
               <motion.button
@@ -138,6 +153,8 @@ const Sidebar = () => {
 
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground truncate flex-1">{chat.lastMessageText}</p>
+                    
+                    {/* Unread Badge displays here */}
                     {chat.unreadCount > 0 && !isSelected && (
                       <span className="ml-2 shrink-0 min-w-[20px] h-5 px-2 flex items-center justify-center bg-primary text-primary-foreground text-xs font-medium rounded-full">
                         {chat.unreadCount}

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { conversationApi } from "../api/conversationApi";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
@@ -15,7 +15,13 @@ export const ConversationProvider = ({ children }) => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch conversations and all users for the Sidebar mapping
+    // Keep a fresh reference to prevent closure bugs in the socket listener
+    const activeConvRef = useRef(activeConversation);
+    useEffect(() => {
+        activeConvRef.current = activeConversation;
+    }, [activeConversation]);
+
+    // Fetch conversations and all users
     useEffect(() => {
         if (!currentUser) return;
 
@@ -39,7 +45,7 @@ export const ConversationProvider = ({ children }) => {
         fetchData();
     }, [currentUser, getAllUsers]);
 
-    // Listen to Socket to bump conversations to top and update Last Message
+    // Socket Listener for new messages
     useEffect(() => {
         if (!socket) return;
 
@@ -49,19 +55,25 @@ export const ConversationProvider = ({ children }) => {
                 const index = updated.findIndex(c => c._id === message.conversationId);
                 
                 if (index > -1) {
-                    const conv = updated[index];
+                    const conv = { ...updated[index] }; // Clone to trigger React re-render
                     conv.lastMessage = {
                         messageId: message._id || message.clientMessageId,
                         content: message.text || message.content?.text || "[Attachment]",
                         senderId: message.senderId,
                         createdAt: message.createdAt || new Date().toISOString()
                     };
-                    // Remove from old position and push to top
+
+                    // Only increment unread count if we are NOT currently looking at this chat
+                    const myId = currentUser?.id || currentUser?._id;
+                    if (activeConvRef.current !== message.conversationId && message.senderId !== myId) {
+                        conv.unreadCount = (conv.unreadCount || 0) + 1;
+                        conv.isReadLocally = false;
+                    }
+
                     updated.splice(index, 1);
-                    updated.unshift(conv);
+                    updated.unshift(conv); // Push to top
                     return updated;
                 } else {
-                    // If it's a brand new conversation not in state, trigger a re-fetch
                     conversationApi.getConversations().then(res => {
                         setConversations(res.data?.data || res.data || []);
                     });
@@ -72,9 +84,9 @@ export const ConversationProvider = ({ children }) => {
 
         socket.on("new_message", handleNewMessage);
         return () => socket.off("new_message", handleNewMessage);
-    }, [socket]);
+    }, [socket, currentUser]);
 
-    // The central function to start or switch chats
+    // Handle clicks in Sidebar
     const startOrSelectConversation = async (targetUser) => {
         const formattedUser = {
             id: targetUser._id || targetUser.id,
@@ -91,7 +103,14 @@ export const ConversationProvider = ({ children }) => {
             
             setActiveConversation(convId);
             
-            // If this was a brand new DM, refresh the sidebar list
+            // Instantly clear the unread notification badge locally
+            setConversations(prev => prev.map(c => {
+                if (String(c._id) === String(convId) || String(c.id) === String(convId)) {
+                    return { ...c, unreadCount: 0, isReadLocally: true };
+                }
+                return c;
+            }));
+
             if (!conversations.find(c => c._id === convId)) {
                 const refreshRes = await conversationApi.getConversations();
                 setConversations(refreshRes.data?.data || refreshRes.data || []);
@@ -103,15 +122,8 @@ export const ConversationProvider = ({ children }) => {
 
     return (
         <ConversationContext.Provider value={{
-            conversations,
-            setConversations,
-            allUsers,
-            activeConversation,
-            setActiveConversation,
-            selectedUser,
-            setSelectedUser,
-            startOrSelectConversation,
-            isLoading
+            conversations, setConversations, allUsers, activeConversation, setActiveConversation,
+            selectedUser, setSelectedUser, startOrSelectConversation, isLoading
         }}>
             {children}
         </ConversationContext.Provider>
