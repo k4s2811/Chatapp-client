@@ -1,43 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCheck, Copy, Clock } from 'lucide-react';
+import { Check, CheckCheck, Copy, Clock, Trash2, Ban } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { useConversation } from '../../context/ConversationContext';
+import { useChat } from '../../context/ChatContext';
 
 const MessageBubble = ({ message, isOwn }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
 
-  // Access contexts to calculate read status locally
   const { user } = useAuth();
   const { conversations, activeConversation } = useConversation();
+  const { deleteMessage } = useChat();
 
   const messageText = message?.content?.text || message?.text || "";
   const messageDate = message?.createdAt || message?.timestamp || new Date();
 
-  // --- AUTOMATIC STATUS CALCULATION ---
-  const status = useMemo(() => {
-    if (!isOwn) return null; // We only care about statuses for messages WE sent
-    if (message.sending) return "sending"; // Shows Clock
-    if (!message._id) return "delivered";  // Fallback if DB ID hasn't arrived yet
+  const isDeleted = message?.isDeleted || messageText === "This message was deleted";
 
-    // Find the other user's lastReadMessageId
+  const status = useMemo(() => {
+    if (!isOwn) return null;
+    if (message.sending) return "sending";
+    if (!message._id) return "delivered";
+
     const myId = String(user?.id || user?._id);
     const currentChat = conversations.find(c => String(c._id || c.id) === String(activeConversation));
-    
+
     const otherParticipant = currentChat?.participants?.find(
       p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) !== myId
     );
 
     const otherUserLastReadId = otherParticipant?.lastReadMessageId;
 
-    // Because MongoDB ObjectIDs are chronological, direct string comparison works perfectly
     if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
-      return "read"; // Shows Double Blue Ticks
+      return "read";
     }
-    
-    return "delivered"; // Shows Single Tick
+
+    return "delivered";
   }, [isOwn, message, user, conversations, activeConversation]);
 
 
@@ -46,7 +46,7 @@ const MessageBubble = ({ message, isOwn }) => {
     try {
       return formatDistanceToNow(new Date(date), { addSuffix: true });
     } catch (error) {
-      return ''; 
+      return '';
     }
   };
 
@@ -76,6 +76,7 @@ const MessageBubble = ({ message, isOwn }) => {
 
   const handleContextMenu = (e) => {
     e.preventDefault();
+    if (isDeleted) return;
     setContextMenu({ show: true, x: e.pageX, y: e.pageY });
   };
 
@@ -91,6 +92,13 @@ const MessageBubble = ({ message, isOwn }) => {
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
+  };
+
+  const handleDelete = () => {
+    if (message._id) {
+      deleteMessage(message._id);
+    }
+    setContextMenu({ show: false, x: 0, y: 0 });
   };
 
   useEffect(() => {
@@ -112,15 +120,24 @@ const MessageBubble = ({ message, isOwn }) => {
 
           <div
             onContextMenu={handleContextMenu}
+            onDoubleClick={handleContextMenu}
             className={`${isOwn
               ? 'bg-message-sent text-message-sent-foreground'
               : 'bg-message-received text-message-received-foreground border border-border'
               } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
-              } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform`}
+              } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
+              }`}
           >
-            <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words">
-              {renderTextWithLinks(messageText)}
-            </p>
+            {isDeleted ? (
+              <div className="flex items-center gap-2 italic text-[15px]">
+                <Ban size={14} className="opacity-60" />
+                <span>This message was deleted</span>
+              </div>
+            ) : (
+              <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words cursor-pointer">
+                {renderTextWithLinks(messageText)}
+              </p>
+            )}
           </div>
 
           <div className={`flex items-center gap-1.5 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -128,8 +145,7 @@ const MessageBubble = ({ message, isOwn }) => {
               {formatTime(messageDate)}
             </span>
 
-            {/* Smart Icons Based on Computed Status */}
-            {isOwn && (
+            {isOwn && !isDeleted && (
               <div className="text-muted-foreground flex items-center">
                 {status === 'read' ? (
                   <CheckCheck size={14} className="text-primary" />
@@ -160,22 +176,32 @@ const MessageBubble = ({ message, isOwn }) => {
       </motion.div>
 
       <AnimatePresence>
-        {contextMenu.show && (
+        {contextMenu.show && !isDeleted && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className="fixed z-50 min-w-[140px] bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1"
+            className="fixed z-50 min-w-[90px] bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <button
               onClick={handleCopy}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left"
             >
-              <Copy size={14} />
-              Copy Message
+              <Copy size={16} />
+              Copy
             </button>
+
+            {isOwn && (
+              <button
+                onClick={handleDelete}
+                className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-destructive hover:text-white text-red-500 transition-colors text-left mt-1"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

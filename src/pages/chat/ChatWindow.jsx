@@ -2,66 +2,47 @@ import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { MoreVertical, Phone, Video, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
-import { motion, AnimatePresence } from 'framer-motion'; // <-- Added for smooth button animation
+import { motion, AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
-import { useAuth } from '../../context/AuthContext'; 
-import { useSocket } from '../../context/SocketContext'; 
-import { useChat } from '../../context/ChatContext'; 
+import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { useChat } from '../../context/ChatContext';
 
 export default function ChatWindow({
     conversation,
-    user, 
-    messages = [], 
+    user,
+    messages = [],
     onSendMessage,
     isTyping,
-    onTyping 
+    onTyping
 }) {
-    const { user: currentUser } = useAuth(); 
-    const { socket } = useSocket(); 
+    const { user: currentUser } = useAuth();
+
+    const { socket, onlineUsers, checkUserOnline } = useSocket();
     const { loadMoreMessages, hasMore, isFetchingMore } = useChat();
 
     const messagesContainerRef = useRef(null);
     const messagesEndRef = useRef(null);
 
-    // --- STRICT SCROLL TRACKERS ---
     const scrollState = useRef({ scrollHeight: 0, scrollTop: 0 });
     const lastMessageIdRef = useRef(null);
-    const [isOnline, setIsOnline] = useState(false);
-    
-    // --- NEW: Track if we should show the scroll-to-bottom button ---
     const [showScrollButton, setShowScrollButton] = useState(false);
 
-    // Online Status Effect
+    const targetUserId = String(user?.id || user?._id);
+    const isOnline = onlineUsers.has(targetUserId); // Instantly evaluates to true/false
+
     useEffect(() => {
-        if (!socket || !user) return;
-        const targetUserId = String(user.id || user._id);
+        if (targetUserId) {
+            checkUserOnline(targetUserId);
+        }
+    }, [targetUserId, checkUserOnline]);
 
-        socket.emit("check_online", targetUserId, (response) => {
-            if (response) setIsOnline(response.online);
-        });
 
-        const handleUserOnline = ({ userId }) => {
-            if (String(userId) === targetUserId) setIsOnline(true);
-        };
-        const handleUserOffline = ({ userId }) => {
-            if (String(userId) === targetUserId) setIsOnline(false);
-        };
-
-        socket.on("user_online", handleUserOnline);
-        socket.on("user_offline", handleUserOffline);
-
-        return () => {
-            socket.off("user_online", handleUserOnline);
-            socket.off("user_offline", handleUserOffline);
-        };
-    }, [socket, user]);
-
-    // Reset scroll states when you switch to a different user
     const activeConvId = conversation?.id || conversation?._id;
-    
+
     useEffect(() => {
         lastMessageIdRef.current = null;
         scrollState.current = { scrollHeight: 0, scrollTop: 0 };
@@ -69,15 +50,8 @@ export default function ChatWindow({
     }, [activeConvId]);
 
 
-    // ==========================================
-    // BULLETPROOF SCROLLING LOGIC
-    // ==========================================
-
-    // Rule A: Detect scrolling up
     const handleScroll = (e) => {
         const container = e.target;
-        
-        // 1. Check for infinite scroll (top)
         if (container.scrollTop < 50 && hasMore && !isFetchingMore) {
             scrollState.current = {
                 scrollHeight: container.scrollHeight,
@@ -86,7 +60,6 @@ export default function ChatWindow({
             loadMoreMessages();
         }
 
-        // 2. Check distance from bottom for the Floating Button
         const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
         if (distanceFromBottom > 250) {
             setShowScrollButton(true);
@@ -95,12 +68,10 @@ export default function ChatWindow({
         }
     };
 
-    // Helper: Scroll to bottom instantly when clicked
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Rule B: Preserve Scroll Position exactly when older messages inject at the top
     useLayoutEffect(() => {
         const container = messagesContainerRef.current;
         if (container && scrollState.current.scrollHeight > 0 && !isFetchingMore) {
@@ -110,7 +81,6 @@ export default function ChatWindow({
         }
     }, [messages.length, isFetchingMore]);
 
-    // Rule C: Scroll to bottom ONLY for Initial Load or Brand New messages at the bottom
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container || messages.length === 0) return;
@@ -118,16 +88,14 @@ export default function ChatWindow({
         const lastMessage = messages[messages.length - 1];
         const currentLastMessageId = lastMessage._id || lastMessage.clientMessageId;
 
-        // SCENARIO 1: Initial Chat Load -> Snap to bottom instantly
         if (lastMessageIdRef.current === null) {
             setTimeout(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-            }, 100); 
+            }, 100);
             lastMessageIdRef.current = currentLastMessageId;
             return;
         }
 
-        // SCENARIO 2: A BRAND NEW message arrived at the very bottom
         if (lastMessageIdRef.current !== currentLastMessageId && scrollState.current.scrollHeight === 0) {
             const myId = String(currentUser?.id || currentUser?._id);
             const isMyMessage = String(lastMessage.senderId) === myId;
@@ -140,7 +108,6 @@ export default function ChatWindow({
         }
     }, [messages, currentUser]);
 
-    // Rule D: Auto-scroll for Typing Indicator ONLY if already reading the bottom
     useEffect(() => {
         if (isTyping) {
             const container = messagesContainerRef.current;
@@ -149,8 +116,6 @@ export default function ChatWindow({
             }
         }
     }, [isTyping]);
-
-    // ==========================================
 
     if (!conversation || !user) {
         return (
@@ -213,21 +178,17 @@ export default function ChatWindow({
             <main className="flex-1 flex flex-col relative overflow-hidden">
                 <div
                     className="absolute inset-0 z-0 pointer-events-none opacity-[0.05] dark:opacity-[0.08]"
-                    style={{
-                        backgroundImage: `var(--chat-pattern)`,
-                        backgroundRepeat: 'repeat',
-                        backgroundSize: '450px'
-                    }}
+                    style={{ backgroundImage: `var(--chat-pattern)`, backgroundRepeat: 'repeat', backgroundSize: '450px' }}
                 />
 
                 <div
                     ref={messagesContainerRef}
-                    onScroll={handleScroll} 
+                    onScroll={handleScroll}
                     className="flex-1 overflow-y-auto px-4 sm:px-10 md:px-20 lg:px-32 py-8 scrollbar-thin scrollbar-thumb-border z-10 relative"
                     style={{ overflowAnchor: 'none' }}
                 >
                     <div className="flex flex-col space-y-3 max-w-5xl mx-auto w-full">
-                        
+
                         {isFetchingMore && (
                             <div className="flex justify-center py-4">
                                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-50" />
@@ -239,11 +200,7 @@ export default function ChatWindow({
                             const isMyMessage = message.senderId === currentUserId || message.sending;
 
                             return (
-                                <MessageBubble
-                                    key={message._id || message.clientMessageId}
-                                    message={message}
-                                    isOwn={isMyMessage} 
-                                />
+                                <MessageBubble key={message._id || message.clientMessageId} message={message} isOwn={isMyMessage} />
                             );
                         })}
 
@@ -256,7 +213,6 @@ export default function ChatWindow({
                     </div>
                 </div>
 
-                {/* --- NEW: Floating Scroll-to-Bottom Button --- */}
                 <AnimatePresence>
                     {showScrollButton && (
                         <motion.div
@@ -265,11 +221,7 @@ export default function ChatWindow({
                             exit={{ opacity: 0, y: 15, scale: 0.9 }}
                             className="absolute bottom-6 right-6 z-30"
                         >
-                            <Button
-                                onClick={scrollToBottom}
-                                size="icon"
-                                className="h-10 w-10 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
+                            <Button onClick={scrollToBottom} size="icon" className="h-10 w-10 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
                                 <ChevronDown size={22} />
                             </Button>
                         </motion.div>
@@ -280,11 +232,7 @@ export default function ChatWindow({
 
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">
                 <div className="max-w-5xl mx-auto w-full">
-                    <MessageInput
-                        key={activeConvId || 'default'} 
-                        onSend={onSendMessage}
-                        onTyping={onTyping}
-                    />
+                    <MessageInput key={activeConvId || 'default'} onSend={onSendMessage} onTyping={onTyping} />
                 </div>
             </footer>
         </div>

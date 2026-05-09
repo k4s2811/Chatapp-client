@@ -21,7 +21,7 @@ const ConversationSkeleton = () => (
 
 const Sidebar = () => {
   const { user: currentUser } = useAuth();
-  const { socket } = useSocket(); // <-- Grab the socket instance
+  const { socket } = useSocket();
   const {
     conversations,
     activeConversation,
@@ -30,21 +30,19 @@ const Sidebar = () => {
   } = useConversation();
 
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // --- NEW: Dictionary to track who is typing in which conversation ---
-  const [typingData, setTypingData] = useState({}); 
 
-  // Listen for real-time typing events globally across the sidebar
+  const [typingData, setTypingData] = useState({});
+
   useEffect(() => {
     if (!socket) return;
 
     const handleTyping = ({ conversationId, isTyping, userId }) => {
       const myId = String(currentUser?.id || currentUser?._id);
-      if (String(userId) === myId) return; // Ignore our own typing events
+      if (String(userId) === myId) return;
 
       setTypingData((prev) => ({
         ...prev,
-        [conversationId]: isTyping // Set the specific conversation to true/false
+        [conversationId]: isTyping
       }));
     };
 
@@ -102,7 +100,7 @@ const Sidebar = () => {
         );
       })
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [conversations, currentUser, searchTerm, typingData]); // <-- Added typingData to dependencies
+  }, [conversations, currentUser, searchTerm, typingData]);
 
   return (
     <div className="w-[320px] md:w-[380px] flex flex-col border-r border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground h-full" data-testid="sidebar">
@@ -166,7 +164,6 @@ const Sidebar = () => {
 
                   <div className="flex items-center justify-between gap-2">
                     
-                    {/* --- NEW: Dynamic check for typing vs standard text --- */}
                     {chat.isTyping ? (
                       <p className="text-sm truncate flex-1 text-primary font-medium italic animate-pulse">
                         typing...
@@ -177,7 +174,6 @@ const Sidebar = () => {
                       </p>
                     )}
 
-                    {/* Clean unread dot indicator */}
                     {chat.hasUnread && !isSelected && (
                       <span className="shrink-0 w-2.5 h-2.5 bg-primary rounded-full mt-0.5 shadow-sm" aria-label="Unread message" />
                     )}

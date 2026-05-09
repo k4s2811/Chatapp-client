@@ -21,9 +21,6 @@ export const ConversationProvider = ({ children }) => {
         activeConvRef.current = activeConversation;
     }, [activeConversation]);
 
-    // ==========================================
-    // 1. CORE FETCH & POPULATE LOGIC
-    // ==========================================
     const loadConversations = useCallback(async () => {
         if (!currentUser) return;
         setIsLoading(true);
@@ -100,9 +97,7 @@ export const ConversationProvider = ({ children }) => {
     }, [loadConversations]);
 
 
-    // ==========================================
     // 2. REAL-TIME SOCKET LISTENERS
-    // ==========================================
     useEffect(() => {
         if (!socket) return;
 
@@ -141,7 +136,6 @@ export const ConversationProvider = ({ children }) => {
             });
         };
 
-        // --- NEW: Handle real-time read receipts from the other user ---
         const handleMessagesRead = ({ conversationId, messageId, readByUserId }) => {
             setConversations((prev) => {
                 const updated = [...prev];
@@ -150,7 +144,6 @@ export const ConversationProvider = ({ children }) => {
                 if (index > -1) {
                     const conv = { ...updated[index] };
                     
-                    // Update the specific participant's lastReadMessageId so the MessageBubble gets double ticks
                     conv.participants = conv.participants.map(p => {
                         const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
                         if (pId === String(readByUserId)) {
@@ -175,9 +168,7 @@ export const ConversationProvider = ({ children }) => {
     }, [socket, currentUser, loadConversations]);
 
 
-    // ==========================================
     // 3. ROUTING & CLICK HANDLERS
-    // ==========================================
     const startOrSelectConversation = async (targetUser) => {
         const formattedUser = {
             id: targetUser._id || targetUser.id,

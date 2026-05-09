@@ -66,12 +66,9 @@ export default function Profile() {
     border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground 
     h-screen overflow-y-auto" data-testid="sidebar">
 
-      {/* Top Header */}
       <div className="flex items-center justify-between p-4 sticky top-0 bg-sidebar z-10">
         <div className="flex items-center gap-4">
-          {/* <button onClick={() => navigate(-1)} className="hover:bg-sidebar-accent p-2 rounded-full transition-colors">
-            <ArrowLeft size={20} />
-          </button> */}
+
           <h1 className="text-xl font-semibold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Settings
           </h1>
@@ -79,12 +76,9 @@ export default function Profile() {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <ThemeSelector />
-          {/* <button className="p-2 hover:bg-sidebar-accent rounded-full transition-colors"><Pencil size={18} /></button> */}
-          {/* <button className="p-2 hover:bg-sidebar-accent rounded-full transition-colors"><MoreVertical size={18} /></button> */}
         </div>
       </div>
 
-      {/* Profile Section */}
       <div className="flex flex-col items-center py-6 px-4">
         <div className="relative group cursor-pointer">
           <Avatar className="h-28 w-28 border-2 border-primary/20 shadow-xl">
@@ -99,7 +93,6 @@ export default function Profile() {
         <p className="text-sm text-green-500 font-medium">online</p>
       </div>
 
-      {/* Info Sections */}
       <div className="px-4 space-y-1">
         <button className="w-full flex items-center gap-4 p-3 hover:bg-sidebar-accent rounded-xl transition-all group">
           <UserCircle className="text-muted-foreground group-hover:text-primary transition-colors" size={24} />
@@ -111,7 +104,6 @@ export default function Profile() {
 
         <div className="h-[1px] bg-sidebar-border my-2 mx-2" />
 
-        {/* Change Password Form Container */}
         <form onSubmit={handleChangePassword} className="space-y-3 p-2">
           <div className="flex items-center gap-2 px-2 mb-2 text-primary font-semibold text-sm">
             <ShieldCheck size={16} />
@@ -262,7 +254,6 @@ export default function Profile() {
         </form>
       </div>
 
-      {/* Bottom Signout */}
       <div className="mt-auto p-4 border-t border-sidebar-border">
         <button
           onClick={() => signout()}

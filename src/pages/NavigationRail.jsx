@@ -19,14 +19,12 @@ const NavItem = ({ icon: Icon, label, mode, badge, active, onClick }) => (
       >
         <Icon size={24} strokeWidth={active ? 2.5 : 2} />
 
-        {/* Badge (like your 99+) */}
         {badge && (
           <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-background">
             {badge}
           </span>
         )}
 
-        {/* Active Indicator (Vertical Pill) */}
         {active && (
           <motion.div
             layoutId="active-pill"
@@ -55,7 +53,6 @@ const NavigationRail = () => {
       <div className="w-16 flex flex-col items-center py-4 border-r
        border-border bg-background h-screen shrink-0">
 
-        {/* Top Section: Navigation */}
         <div className="flex flex-col gap-4 flex-1">
           {navItems.map((item) => (
             <NavItem
@@ -70,7 +67,6 @@ const NavigationRail = () => {
 
         </div>
 
-        {/* Bottom Section: Profile */}
         <div className="flex flex-col gap-4 mt-auto">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -87,10 +83,6 @@ const NavigationRail = () => {
                   hover:bg-muted hover:text-foreground 
                   ${mode === 'profile' ? 'border-primary' : 'border-transparent'}`}
               >
-                {/* <Avatar className="h-10 w-10 border border-border">
-                  <AvatarImage src={user?.avatar} />
-                  <AvatarFallback>{user?.name?.[0]}</AvatarFallback>
-                </Avatar> */}
                 <Settings size={24} />
               </button>
             </TooltipTrigger>

@@ -22,7 +22,6 @@ export default function Layout() {
         sendTyping(activeConversation, isTypingState);
     };
 
-    // Safe Check: Converts MongoDB ObjectIds and Strings to the same format before comparing
     const isTyping = selectedUser && typingUsers.some(id => 
         String(id) === String(selectedUser.id || selectedUser._id)
     );
@@ -44,7 +43,6 @@ export default function Layout() {
 
             {mode === 'profile' && <Profile />}
 
-            {/* UNCOMMENTED PROPS: */}
             <ChatWindow
                 conversation={activeConversation ? { id: activeConversation } : null}
                 user={selectedUser}

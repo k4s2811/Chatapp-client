@@ -23,13 +23,11 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     setMessage(e.target.value);
     autoResize();
 
-    // Tell the server we are typing!
     if (onTyping && !disabled) {
       onTyping(true); 
       
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       
-      // Stop typing indicator after 2 seconds of inactivity
       typingTimeoutRef.current = setTimeout(() => {
         onTyping(false);
       }, 2000);
@@ -42,7 +40,6 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
       onSend(message.trim());
       setMessage('');
       
-      // Stop typing indicator immediately when message is sent
       if (onTyping) {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         onTyping(false);
