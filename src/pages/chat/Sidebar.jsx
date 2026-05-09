@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useConversation } from '../../context/ConversationContext';
+import { useSocket } from '../../context/SocketContext'; // <-- Import socket to listen for typing
 
 const ConversationSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -20,6 +21,7 @@ const ConversationSkeleton = () => (
 
 const Sidebar = () => {
   const { user: currentUser } = useAuth();
+  const { socket } = useSocket(); // <-- Grab the socket instance
   const {
     conversations,
     activeConversation,
@@ -28,8 +30,28 @@ const Sidebar = () => {
   } = useConversation();
 
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- NEW: Dictionary to track who is typing in which conversation ---
+  const [typingData, setTypingData] = useState({}); 
 
-  // THE MISSING FUNCTION IS BACK!
+  // Listen for real-time typing events globally across the sidebar
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTyping = ({ conversationId, isTyping, userId }) => {
+      const myId = String(currentUser?.id || currentUser?._id);
+      if (String(userId) === myId) return; // Ignore our own typing events
+
+      setTypingData((prev) => ({
+        ...prev,
+        [conversationId]: isTyping // Set the specific conversation to true/false
+      }));
+    };
+
+    socket.on("typing", handleTyping);
+    return () => socket.off("typing", handleTyping);
+  }, [socket, currentUser]);
+
   const formatTime = (dateString) => {
     if (!dateString) return '';
     try {
@@ -52,29 +74,23 @@ const Sidebar = () => {
 
         if (!otherParticipant) return null;
 
-        // Extract user details 
         const otherUser = typeof otherParticipant.userId === 'object' && otherParticipant.userId?.email
           ? otherParticipant.userId
           : { id: otherParticipant.userId, name: 'Unknown', email: 'Unknown' };
 
         const displayName = otherUser.name || otherUser.email?.split('@')[0] || 'Unknown User';
         const lastMessageText = conv.lastMessage?.content || "Started a conversation";
-
-        let unreadCount = conv.unreadCount || 0;
-        if (unreadCount === 0 && conv.isReadLocally !== true && conv.lastMessage?.senderId) {
-          if (String(conv.lastMessage.senderId) !== currentUserId) {
-            unreadCount = 1;
-          }
-        }
+        const convIdStr = String(conv._id || conv.id);
 
         return {
-          id: String(conv._id || conv.id),
+          id: convIdStr,
           rawUser: otherUser,
           displayName,
           avatar: otherUser.avatar_url || otherUser.avatar,
           lastMessageText,
           timestamp: conv.lastMessage?.createdAt || conv.createdAt || conv.updatedAt,
-          unreadCount
+          hasUnread: conv.hasUnread || false,
+          isTyping: typingData[convIdStr] || false // Attach typing state to the conversation
         };
       })
       .filter(Boolean)
@@ -86,7 +102,7 @@ const Sidebar = () => {
         );
       })
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [conversations, currentUser, searchTerm]);
+  }, [conversations, currentUser, searchTerm, typingData]); // <-- Added typingData to dependencies
 
   return (
     <div className="w-[320px] md:w-[380px] flex flex-col border-r border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground h-full" data-testid="sidebar">
@@ -143,20 +159,27 @@ const Sidebar = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-medium truncate text-foreground">{chat.displayName}</h3>
-                    <span className="text-[11px] text-muted-foreground shrink-0 ml-2 font-medium">
+                    <span className={`text-[11px] shrink-0 ml-2 ${chat.hasUnread && !isSelected ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}>
                       {formatTime(chat.timestamp)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`text-sm truncate flex-1 ${chat.unreadCount > 0 && !isSelected ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                      {chat.lastMessageText}
-                    </p>
+                    
+                    {/* --- NEW: Dynamic check for typing vs standard text --- */}
+                    {chat.isTyping ? (
+                      <p className="text-sm truncate flex-1 text-primary font-medium italic animate-pulse">
+                        typing...
+                      </p>
+                    ) : (
+                      <p className={`text-sm truncate flex-1 ${chat.hasUnread && !isSelected ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+                        {chat.lastMessageText}
+                      </p>
+                    )}
 
-                    {chat.unreadCount > 0 && !isSelected && (
-                      <span className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-full">
-                        {chat.unreadCount}
-                      </span>
+                    {/* Clean unread dot indicator */}
+                    {chat.hasUnread && !isSelected && (
+                      <span className="shrink-0 w-2.5 h-2.5 bg-primary rounded-full mt-0.5 shadow-sm" aria-label="Unread message" />
                     )}
                   </div>
                 </div>

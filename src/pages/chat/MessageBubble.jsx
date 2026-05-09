@@ -1,25 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCheck, Copy } from 'lucide-react';
+import { Check, CheckCheck, Copy, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
+import { useConversation } from '../../context/ConversationContext';
 
 const MessageBubble = ({ message, isOwn }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
 
-  // 1. SAFELY extract text (Handles both Backend format and Optimistic UI format)
+  // Access contexts to calculate read status locally
+  const { user } = useAuth();
+  const { conversations, activeConversation } = useConversation();
+
   const messageText = message?.content?.text || message?.text || "";
-  
-  // 2. SAFELY extract the date (Handles createdAt, timestamp, or defaults to now)
   const messageDate = message?.createdAt || message?.timestamp || new Date();
+
+  // --- AUTOMATIC STATUS CALCULATION ---
+  const status = useMemo(() => {
+    if (!isOwn) return null; // We only care about statuses for messages WE sent
+    if (message.sending) return "sending"; // Shows Clock
+    if (!message._id) return "delivered";  // Fallback if DB ID hasn't arrived yet
+
+    // Find the other user's lastReadMessageId
+    const myId = String(user?.id || user?._id);
+    const currentChat = conversations.find(c => String(c._id || c.id) === String(activeConversation));
+    
+    const otherParticipant = currentChat?.participants?.find(
+      p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) !== myId
+    );
+
+    const otherUserLastReadId = otherParticipant?.lastReadMessageId;
+
+    // Because MongoDB ObjectIDs are chronological, direct string comparison works perfectly
+    if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
+      return "read"; // Shows Double Blue Ticks
+    }
+    
+    return "delivered"; // Shows Single Tick
+  }, [isOwn, message, user, conversations, activeConversation]);
+
 
   const formatTime = (date) => {
     if (!date) return '';
     try {
-      // Ensure we are passing a valid Date object to date-fns
       return formatDistanceToNow(new Date(date), { addSuffix: true });
     } catch (error) {
-      return ''; // Fallback if the date is completely unparseable
+      return ''; 
     }
   };
 
@@ -49,18 +76,14 @@ const MessageBubble = ({ message, isOwn }) => {
 
   const handleContextMenu = (e) => {
     e.preventDefault();
-    setContextMenu({
-      show: true,
-      x: e.pageX,
-      y: e.pageY,
-    });
+    setContextMenu({ show: true, x: e.pageX, y: e.pageY });
   };
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(messageText); // Use unified text
+      await navigator.clipboard.writeText(messageText);
       setIsCopied(true);
-      setContextMenu({ show: false, x: 0, y: 0 }); 
+      setContextMenu({ show: false, x: 0, y: 0 });
 
       setTimeout(() => {
         setIsCopied(false);
@@ -72,13 +95,8 @@ const MessageBubble = ({ message, isOwn }) => {
 
   useEffect(() => {
     const closeMenu = () => setContextMenu({ show: false, x: 0, y: 0 });
-
-    if (contextMenu.show) {
-      document.addEventListener('click', closeMenu);
-    }
-    return () => {
-      document.removeEventListener('click', closeMenu);
-    };
+    if (contextMenu.show) document.addEventListener('click', closeMenu);
+    return () => document.removeEventListener('click', closeMenu);
   }, [contextMenu.show]);
 
   return (
@@ -92,7 +110,6 @@ const MessageBubble = ({ message, isOwn }) => {
       >
         <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} relative group`}>
 
-          {/* Message Bubble */}
           <div
             onContextMenu={handleContextMenu}
             className={`${isOwn
@@ -101,26 +118,25 @@ const MessageBubble = ({ message, isOwn }) => {
               } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
               } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform`}
           >
-            {/* Render the unified text */}
             <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words">
-              {renderTextWithLinks(messageText)} 
+              {renderTextWithLinks(messageText)}
             </p>
           </div>
 
-          {/* Metadata */}
           <div className={`flex items-center gap-1.5 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
             <span className="text-xs text-muted-foreground">
-              {formatTime(messageDate)} {/* Use unified safe date */}
+              {formatTime(messageDate)}
             </span>
 
+            {/* Smart Icons Based on Computed Status */}
             {isOwn && (
-              <div className="text-muted-foreground">
-                {message.readBy?.length > 1 ? ( 
+              <div className="text-muted-foreground flex items-center">
+                {status === 'read' ? (
                   <CheckCheck size={14} className="text-primary" />
-                ) : !message.sending ? (
-                  <CheckCheck size={14} />
-                ) : (
+                ) : status === 'delivered' ? (
                   <Check size={14} />
+                ) : (
+                  <Clock size={12} className="opacity-70" />
                 )}
               </div>
             )}
@@ -143,7 +159,6 @@ const MessageBubble = ({ message, isOwn }) => {
         </div>
       </motion.div>
 
-      {/* Floating Context Menu */}
       <AnimatePresence>
         {contextMenu.show && (
           <motion.div

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { conversationApi } from "../api/conversationApi";
-import { usersApi } from "../api/auth"; // Ensure this path matches where getUsersByIds is!
+import { usersApi } from "../api/auth";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
 
@@ -15,7 +15,6 @@ export const ConversationProvider = ({ children }) => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Keep a fresh reference to prevent closure bugs in the socket listener
     const activeConvRef = useRef(activeConversation);
 
     useEffect(() => {
@@ -30,27 +29,36 @@ export const ConversationProvider = ({ children }) => {
         setIsLoading(true);
 
         try {
-            // A. Fetch raw conversations
             const convRes = await conversationApi.getConversations();
             let fetchedConvs = convRes.data?.data || convRes.data || [];
+            const myId = String(currentUser.id || currentUser._id);
 
-            // B. Filter out empty conversations (Unless it's the one we just clicked)
-            // Inside loadConversations()
-            fetchedConvs = fetchedConvs.filter(conv => {
-                // Make sure it actually has content, not just an empty object!
+            fetchedConvs = fetchedConvs.map(conv => {
                 const hasMessage = conv.lastMessage && conv.lastMessage.content;
                 const isActive = String(conv._id || conv.id) === String(activeConvRef.current);
-                return hasMessage || isActive;
-            });
+                if (!(hasMessage || isActive)) return null;
 
-            // C. Find all unique user IDs we need to fetch
-            const myId = String(currentUser.id || currentUser._id);
+                const myParticipantRecord = conv.participants?.find(
+                    p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === myId
+                );
+                
+                const lastReadId = myParticipantRecord?.lastReadMessageId;
+                const lastMsgId = conv.lastMessage?.messageId;
+                const senderId = conv.lastMessage?.senderId;
+
+                let hasUnread = false;
+                if (lastMsgId && String(senderId) !== myId && String(lastReadId) !== String(lastMsgId)) {
+                    hasUnread = true;
+                }
+
+                return { ...conv, hasUnread };
+            }).filter(Boolean);
+
             const userIdsToFetch = new Set();
 
             fetchedConvs.forEach(conv => {
                 conv.participants?.forEach(p => {
                     const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
-                    // Only fetch if it's not us, and if the ID hasn't already been populated into an object
                     if (pId !== myId && typeof p.userId !== 'object') {
                         userIdsToFetch.add(pId);
                     }
@@ -59,29 +67,25 @@ export const ConversationProvider = ({ children }) => {
 
             const uniqueIds = Array.from(userIdsToFetch);
 
-            // D. Batch fetch the user details using our fixed API route
             if (uniqueIds.length > 0) {
                 const usersRes = await usersApi.getUsersByIds(uniqueIds);
                 const usersList = usersRes.data?.data || usersRes.data || [];
 
-                // Create a quick lookup dictionary: { "uuid-123": { name: "Zack", ... } }
                 const usersMap = usersList.reduce((acc, user) => {
                     acc[String(user._id || user.id)] = user;
                     return acc;
                 }, {});
 
-                // E. Inject the populated User Objects back into the conversations array
                 fetchedConvs.forEach(conv => {
                     conv.participants?.forEach(p => {
                         const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
                         if (usersMap[pId]) {
-                            p.userId = usersMap[pId]; // Overwrite string ID with actual User Data!
+                            p.userId = usersMap[pId]; 
                         }
                     });
                 });
             }
 
-            // Save the fully populated array to state
             setConversations(fetchedConvs);
 
         } catch (err) {
@@ -91,14 +95,13 @@ export const ConversationProvider = ({ children }) => {
         }
     }, [currentUser]);
 
-    // Initial Load
     useEffect(() => {
         loadConversations();
     }, [loadConversations]);
 
 
     // ==========================================
-    // 2. REAL-TIME SOCKET LISTENER
+    // 2. REAL-TIME SOCKET LISTENERS
     // ==========================================
     useEffect(() => {
         if (!socket) return;
@@ -120,29 +123,55 @@ export const ConversationProvider = ({ children }) => {
                         createdAt: message.createdAt || new Date().toISOString()
                     };
 
-                    // Only increment unread count if we are NOT currently looking at this chat
                     const myId = currentUser?.id || currentUser?._id;
                     if (
                         String(activeConvRef.current) !== String(message.conversationId) &&
                         String(message.senderId) !== String(myId)
                     ) {
-                        conv.unreadCount = (conv.unreadCount || 0) + 1;
-                        conv.isReadLocally = false;
+                        conv.hasUnread = true; 
                     }
 
                     updated.splice(index, 1);
-                    updated.unshift(conv); // Push to top
+                    updated.unshift(conv);
                     return updated;
                 } else {
-                    // If a brand new conversation arrives via socket, fetch and populate it!
                     loadConversations();
                     return prev;
                 }
             });
         };
 
+        // --- NEW: Handle real-time read receipts from the other user ---
+        const handleMessagesRead = ({ conversationId, messageId, readByUserId }) => {
+            setConversations((prev) => {
+                const updated = [...prev];
+                const index = updated.findIndex(c => String(c._id || c.id) === String(conversationId));
+
+                if (index > -1) {
+                    const conv = { ...updated[index] };
+                    
+                    // Update the specific participant's lastReadMessageId so the MessageBubble gets double ticks
+                    conv.participants = conv.participants.map(p => {
+                        const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
+                        if (pId === String(readByUserId)) {
+                            return { ...p, lastReadMessageId: messageId };
+                        }
+                        return p;
+                    });
+                    
+                    updated[index] = conv;
+                }
+                return updated;
+            });
+        };
+
         socket.on("new_message", handleNewMessage);
-        return () => socket.off("new_message", handleNewMessage);
+        socket.on("messages_read", handleMessagesRead);
+
+        return () => {
+            socket.off("new_message", handleNewMessage);
+            socket.off("messages_read", handleMessagesRead);
+        };
     }, [socket, currentUser, loadConversations]);
 
 
@@ -165,10 +194,18 @@ export const ConversationProvider = ({ children }) => {
 
             setActiveConversation(convId);
 
+            if (conversationData.lastMessage?.messageId) {
+                // Inform the DB
+                conversationApi.markConversationRead(convId, conversationData.lastMessage.messageId).catch(err => {
+                    console.error("Failed to mark conversation as read:", err);
+                });
+                // Inform the other user in real-time
+                if (socket) {
+                    socket.emit("mark_read", { conversationId: convId, messageId: conversationData.lastMessage.messageId });
+                }
+            }
+
             setConversations(prev => {
-                // 1. THE LOCAL SWEEP: Clean up stale empty chats instantly!
-                // Remove any chat from the local array that doesn't have a real message,
-                // EXCEPT the exact one we are opening right now.
                 const cleanedPrev = prev.filter(c => {
                     const hasRealMessage = c.lastMessage && c.lastMessage.content;
                     const isBeingOpenedRightNow = String(c._id || c.id) === String(convId);
@@ -178,24 +215,21 @@ export const ConversationProvider = ({ children }) => {
                 const exists = cleanedPrev.find(c => String(c._id || c.id) === String(convId));
 
                 if (exists) {
-                    // Chat exists: clear the unread notification badge locally
                     return cleanedPrev.map(c => {
                         if (String(c._id || c.id) === String(convId)) {
-                            return { ...c, unreadCount: 0, isReadLocally: true };
+                            return { ...c, hasUnread: false }; 
                         }
                         return c;
                     });
                 } else {
-                    // Brand new chat: Inject it locally
                     return [{
                         ...conversationData,
-                        unreadCount: 0,
-                        isReadLocally: true,
+                        hasUnread: false,
                         participants: [
-                            { userId: formattedUser }, // The target user 
-                            { userId: currentUser }    // Us
+                            { userId: formattedUser }, 
+                            { userId: currentUser }    
                         ]
-                    }, ...cleanedPrev]; // <-- Use the cleaned array!
+                    }, ...cleanedPrev];
                 }
             });
 
@@ -204,7 +238,6 @@ export const ConversationProvider = ({ children }) => {
         }
     };
 
-    // Clears the active chat so mobile can go "back" to the list view
     const clearConversation = () => {
         setActiveConversation(null);
         setSelectedUser(null);

@@ -1,42 +1,54 @@
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { useSocket } from "./SocketContext";
-import { useAuth } from "./AuthContext"; 
-import { useConversation } from "./ConversationContext"; 
-import { messageApi } from "../api/messageApi"; 
+import { useAuth } from "./AuthContext";
+import { useConversation } from "./ConversationContext";
+import { messageApi } from "../api/messageApi";
 
 const ChatContext = createContext(null);
+const MESSAGES_PER_PAGE = 20; // Set limit for pagination
 
 export const ChatProvider = ({ children }) => {
   const { socket } = useSocket();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   const { activeConversation } = useConversation();
-  
+
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
+  // --- NEW STATES FOR PAGINATION ---
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   // Prevent React closure bugs inside socket listeners
   const activeConvRef = useRef(activeConversation);
-  
+
   // Fetch History & Handle State Reset
   useEffect(() => {
     activeConvRef.current = activeConversation;
-    
+
     // Instantly clear old chat data to prevent flashing
     setMessages([]);
     setTypingUsers([]);
-    
+    setHasMore(true); // Reset pagination state
+
     if (!activeConversation) return;
 
-    let isMounted = true; // Prevents race conditions from rapid switching
+    let isMounted = true;
     setIsLoadingMessages(true);
 
     const fetchHistory = async () => {
       try {
-        const res = await messageApi.getMessages(activeConversation);
-        // Only update if we haven't switched to a different chat while waiting
+        // Fetch with limit
+        const res = await messageApi.getMessages(activeConversation, { limit: MESSAGES_PER_PAGE });
         if (isMounted) {
-          setMessages(res.data?.data || res.data || []);
+          const fetchedMessages = res.data?.data || res.data || [];
+          setMessages(fetchedMessages);
+
+          // If the backend returns fewer messages than requested, we've reached the top
+          if (fetchedMessages.length < MESSAGES_PER_PAGE) {
+            setHasMore(false);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch messages:", error);
@@ -47,11 +59,41 @@ export const ChatProvider = ({ children }) => {
 
     fetchHistory();
 
-    // Cleanup function runs when activeConversation changes
     return () => {
-      isMounted = false; 
+      isMounted = false;
     };
   }, [activeConversation]);
+
+  // --- NEW: Load More Messages Function ---
+  const loadMoreMessages = useCallback(async () => {
+    if (!hasMore || isFetchingMore || !messages.length || !activeConversation) return;
+
+    setIsFetchingMore(true);
+    try {
+      // The oldest message currently in state is at index 0
+      const oldestMessageId = messages[0]._id;
+
+      const res = await messageApi.getMessages(activeConversation, {
+        limit: MESSAGES_PER_PAGE,
+        before: oldestMessageId
+      });
+
+      const olderMessages = res.data?.data || res.data || [];
+
+      if (olderMessages.length > 0) {
+        setMessages((prev) => [...olderMessages, ...prev]);
+      }
+
+      // Stop fetching if we received fewer messages than the limit
+      if (olderMessages.length < MESSAGES_PER_PAGE) {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Failed to fetch older messages:", error);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [hasMore, isFetchingMore, messages, activeConversation]);
 
   // Room Management
   useEffect(() => {
@@ -66,11 +108,21 @@ export const ChatProvider = ({ children }) => {
 
     const handleNewMessage = (message) => {
       if (message.conversationId !== activeConvRef.current) return;
+
       setMessages((prev) => {
         const exists = prev.some((m) => m.clientMessageId === message.clientMessageId || m._id === message._id);
         if (exists) return prev;
         return [...prev, message];
       });
+
+      // --- Mark message as read instantly if we are staring at this chat ---
+      const myId = String(user?.id || user?._id);
+      if (String(message.senderId) !== myId) {
+        socket.emit("mark_read", {
+          conversationId: message.conversationId,
+          messageId: message._id || message.clientMessageId
+        });
+      }
     };
 
     const handleTyping = ({ userId, isTyping, conversationId }) => {
@@ -88,7 +140,7 @@ export const ChatProvider = ({ children }) => {
       socket.off("new_message", handleNewMessage);
       socket.off("typing", handleTyping);
     };
-  }, [socket]);
+  }, [socket, user]);
 
   const sendMessage = ({ conversationId, text, attachments = [] }) => {
     if (!socket) return;
@@ -124,7 +176,17 @@ export const ChatProvider = ({ children }) => {
   };
 
   return (
-    <ChatContext.Provider value={{ messages, setMessages, typingUsers, sendMessage, sendTyping, isLoadingMessages }}>
+    <ChatContext.Provider value={{
+      messages,
+      setMessages,
+      typingUsers,
+      sendMessage,
+      sendTyping,
+      isLoadingMessages,
+      loadMoreMessages, // Exported to be used in ChatWindow
+      hasMore,          // Exported to be used in ChatWindow
+      isFetchingMore    // Exported to be used in ChatWindow
+    }}>
       {children}
     </ChatContext.Provider>
   );
