@@ -15,6 +15,7 @@ export function SigninForm({ onSwitchToSignup }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false)
+    const [success, setSuccess] = useState('');
 
     const set = (k) => (e) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -28,7 +29,8 @@ export function SigninForm({ onSwitchToSignup }) {
 
         try {
             await signin(form)
-            navigate('/dashboard')
+            setSuccess('Account signin successfully!')
+            setTimeout(() => navigate('/chat'), 2500)
         } catch (err) {
             setError(err.response?.data?.message || 'Sign in failed')
         } finally {

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
-import { ThemeToggle } from '../../css/ThemeToggle.jsx';
+import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -10,7 +10,7 @@ import { useConversation } from '../../context/ConversationContext';
 
 const ConversationSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-    <Skeleton className="h-12 w-12 rounded-full" />
+    <Skeleton className="h-12 w-12 rounded-full shrink-0" />
     <div className="flex-1 space-y-2">
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-3 w-48" />
@@ -20,68 +20,64 @@ const ConversationSkeleton = () => (
 
 const Sidebar = () => {
   const { user: currentUser } = useAuth();
-  
-  // 1. Pull the getConversations data directly from the new Context!
-  const { 
-      conversations, 
-      allUsers, 
-      activeConversation, 
-      startOrSelectConversation, 
-      isLoading 
+  const {
+    conversations,
+    activeConversation,
+    startOrSelectConversation,
+    isLoading
   } = useConversation();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
 
+  // THE MISSING FUNCTION IS BACK!
   const formatTime = (dateString) => {
     if (!dateString) return '';
     try {
-        return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
     } catch { return ''; }
   };
 
   const formattedConversations = useMemo(() => {
-    if (!conversations?.length || !allUsers?.length || !currentUser) return [];
+    if (!conversations?.length || !currentUser) return [];
 
-    const currentUserId = currentUser.id || currentUser._id;
+    const currentUserId = String(currentUser.id || currentUser._id);
     const searchLower = searchTerm.toLowerCase();
 
     return conversations
       .map(conv => {
-        // TYPE-SAFE FIND: Find the other person in the chat
-        const otherParticipant = conv.participants?.find(p => String(p.userId) !== String(currentUserId));
-        const otherUserDb = allUsers.find(u => String(u.id || u._id) === String(otherParticipant?.userId));
+        const otherParticipant = conv.participants?.find(p => {
+          const pId = p.userId?._id || p.userId?.id || p.userId || p._id || p.id;
+          return String(pId) !== currentUserId;
+        });
 
-        if (!otherUserDb) return null;
+        if (!otherParticipant) return null;
 
-        const displayName = otherUserDb.name || otherUserDb.email?.split('@')[0] || 'Unknown';
+        // Extract user details 
+        const otherUser = typeof otherParticipant.userId === 'object' && otherParticipant.userId?.email
+          ? otherParticipant.userId
+          : { id: otherParticipant.userId, name: 'Unknown', email: 'Unknown' };
+
+        const displayName = otherUser.name || otherUser.email?.split('@')[0] || 'Unknown User';
         const lastMessageText = conv.lastMessage?.content || "Started a conversation";
-        
-        let unreadCount = conv.unreadCount || 0; 
 
-        // Verify against database if local socket hasn't caught anything yet
-        if (unreadCount === 0 && conv.isReadLocally !== true) {
-            const myParticipant = conv.participants?.find(p => String(p.userId) === String(currentUserId));
-            
-            if (
-                conv.lastMessage?.senderId && 
-                String(conv.lastMessage.senderId) !== String(currentUserId) && 
-                String(conv.lastMessage.messageId) !== String(myParticipant?.lastReadMessageId)
-            ) {
-                unreadCount = 1;
-            }
+        let unreadCount = conv.unreadCount || 0;
+        if (unreadCount === 0 && conv.isReadLocally !== true && conv.lastMessage?.senderId) {
+          if (String(conv.lastMessage.senderId) !== currentUserId) {
+            unreadCount = 1;
+          }
         }
 
         return {
-          id: conv._id || conv.id,
-          rawUser: otherUserDb, 
+          id: String(conv._id || conv.id),
+          rawUser: otherUser,
           displayName,
-          avatar: otherUserDb.avatar_url,
+          avatar: otherUser.avatar_url || otherUser.avatar,
           lastMessageText,
-          timestamp: conv.lastMessage?.createdAt || conv.createdAt,
+          timestamp: conv.lastMessage?.createdAt || conv.createdAt || conv.updatedAt,
           unreadCount
         };
       })
-      .filter(Boolean) 
+      .filter(Boolean)
       .filter(item => {
         if (!searchTerm) return true;
         return (
@@ -90,14 +86,12 @@ const Sidebar = () => {
         );
       })
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [conversations, allUsers, currentUser, searchTerm]);
+  }, [conversations, currentUser, searchTerm]);
 
   return (
-    <div className="w-[320px] md:w-[380px] flex flex-col 
-    border-r border-sidebar-border shrink-0 bg-sidebar 
-    text-sidebar-foreground h-screen" data-testid="sidebar">
+    <div className="w-[320px] md:w-[380px] flex flex-col border-r border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground h-full" data-testid="sidebar">
 
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Chats
@@ -114,49 +108,53 @@ const Sidebar = () => {
             placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-full bg-muted border-none focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+            className="w-full pl-10 pr-4 py-2 rounded-full bg-muted border-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground transition-all"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border pb-safe">
         {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => <ConversationSkeleton key={i} />)
+          Array.from({ length: 6 }).map((_, i) => <ConversationSkeleton key={i} />)
         ) : formattedConversations.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">No conversations found.</div>
+          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <p>No conversations found.</p>
+          </div>
         ) : (
           formattedConversations.map((chat) => {
-            // Type-Safe selection highlight
-            const isSelected = String(activeConversation) === String(chat.id);
+            const isSelected = String(activeConversation) === chat.id;
 
             return (
               <motion.button
                 key={chat.id}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => startOrSelectConversation(chat.rawUser)}
-                className={`w-full rounded-xl flex items-center gap-3 p-3 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors text-left ${isSelected ? 'bg-sidebar-accent' : ''}`}
+                className={`w-full rounded-xl flex items-center gap-3 p-3 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors text-left ${isSelected ? 'bg-sidebar-accent border-l-4 border-l-primary pl-2' : 'border-l-4 border-l-transparent'}`}
               >
                 <div className="relative shrink-0">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={chat.avatar} alt={chat.displayName} />
-                    <AvatarFallback className="bg-muted text-muted-foreground uppercase">{chat.displayName[0]}</AvatarFallback>
+                    <AvatarImage src={chat.avatar || undefined} alt={chat.displayName} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-medium uppercase">
+                      {chat.displayName[0]}
+                    </AvatarFallback>
                   </Avatar>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium truncate">{chat.displayName}</h3>
-                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                    <h3 className="font-medium truncate text-foreground">{chat.displayName}</h3>
+                    <span className="text-[11px] text-muted-foreground shrink-0 ml-2 font-medium">
                       {formatTime(chat.timestamp)}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground truncate flex-1">{chat.lastMessageText}</p>
-                    
-                    {/* Unread Badge displays here */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-sm truncate flex-1 ${chat.unreadCount > 0 && !isSelected ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                      {chat.lastMessageText}
+                    </p>
+
                     {chat.unreadCount > 0 && !isSelected && (
-                      <span className="ml-2 shrink-0 min-w-[20px] h-5 px-2 flex items-center justify-center bg-primary text-primary-foreground text-xs font-medium rounded-full">
+                      <span className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-full">
                         {chat.unreadCount}
                       </span>
                     )}

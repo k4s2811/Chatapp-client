@@ -21,6 +21,7 @@ export function SignupForm({ onSwitchToSignin }) {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false)
     const [showRequirements, setShowRequirements] = useState(false)
+    const [success, setSuccess] = useState('');
 
     const allRequirementsMet = passwordRequirements.every(req => req.test(form.password))
 
@@ -36,8 +37,8 @@ export function SignupForm({ onSwitchToSignin }) {
 
         try {
             await signup(form)
-            setSuccess('Account created! Please check your email to verify.')
-            setTimeout(() => navigate('/dashboard'), 2500)
+            setSuccess('Account created!')
+            setTimeout(() => navigate('/chat'), 2500)
         } catch (err) {
             const errs = err.response?.data?.errors
             setError(

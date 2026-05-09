@@ -6,10 +6,10 @@ import { Input } from '../components/ui/input';
 import { Check, X, Loader2, Lock, Eye, EyeOff, ArrowLeft, Camera, LogOut, ShieldCheck, UserCircle, Pencil, MoreVertical } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
-import { ThemeToggle } from '../css/ThemeToggle'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from '../components/ui/field'
 import { motion } from 'framer-motion'
-import { ThemeSelector } from '../css/ThemeSelector';
+import { ThemeSelector } from '../components/ThemeSelector';
 
 const passwordRequirements = [
   { label: 'At least 6 characters', test: (p) => p.length >= 6 },
@@ -95,7 +95,7 @@ export default function Profile() {
             <Camera size={16} />
           </div>
         </div>
-        <h2 className="mt-4 text-xl font-bold">.{user?.name || 'Kunal'}</h2>
+        <h2 className="mt-4 text-xl font-bold">.{user?.name || 'Anonymous'}</h2>
         <p className="text-sm text-green-500 font-medium">online</p>
       </div>
 

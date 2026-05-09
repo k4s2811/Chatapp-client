@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const restore = async () => {
             const token = localStorage.getItem('accessToken')
+            console.log("token",token);
             if (!token) {
                 setLoading(false)
                 return
@@ -75,15 +76,17 @@ export const AuthProvider = ({ children }) => {
         return res
     }
 
-    const getAllUsers = async () => {
-        const res = await usersApi.getAllUsers()
+    const getAllUsers = useCallback(async (page = 1, search = '') => {
+        const res = await usersApi.getAllUsers(page, search)
         return res
-    }
+    }, [])
 
     const getUserById = async (id) => {
-        const res = await usersApi.getUsersByIds([id])
-        return res
-    }
+    // Wrapping it in an array is perfect. 
+    // The usersApi will turn it into a string safely.
+    const res = await usersApi.getUsersByIds([id]); 
+    return res;
+}
 
     return (
         <AuthContext.Provider value={{ user, setUser, signin, signup, signout, updateProfile, getAllUsers, getUserById, loading }}>

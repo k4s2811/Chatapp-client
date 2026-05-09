@@ -25,9 +25,12 @@ export const authApi = {
 
 export const usersApi = {
 
-    getAllUsers: () => api.get("/user/allusers"),
+    getAllUsers: (page = 1, search = '') => api.get(`/user/allusers?page=${page}&limit=10&search=${encodeURIComponent(search)}`),
 
-    getUsersByIds: (ids) => api.get("/user/usersByIds", { params: { ids } }),
-
+    getUsersByIds: (ids) => {
+        const idsString = Array.isArray(ids) ? ids.join(',') : ids;
+        return api.get("/user/usersByIds", { params: { ids: idsString } });
+    },
+    
     updateProfile: (data) => api.post("/user/update", data),
 };

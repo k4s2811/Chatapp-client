@@ -3,31 +3,32 @@ import { io } from "socket.io-client";
 let socket = null;
 
 export const connectSocket = () => {
+  const token = localStorage.getItem("accessToken");
 
-    const token = localStorage.getItem("accessToken");
-    if (!token) return null;
-    if (socket?.connected) return socket;
+  if (!token) return null;
 
-    socket = io("/",{
-        auth: {
-            token
-        },
-        transports: ["websocket"],
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000
-    });
+  if (socket) {
+    socket.disconnect()
+    socket = null
+  }
+  
+  socket = io("/", {
+    auth: { token },
+    transports: ["websocket"],
+    withCredentials: true,
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000
+  });
 
-    return socket;
+  return socket;
 };
 
 export const getSocket = () => socket;
 
 export const disconnectSocket = () => {
-
-    if (socket) {
-        socket.disconnect();
-        socket = null;
-    }
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 };

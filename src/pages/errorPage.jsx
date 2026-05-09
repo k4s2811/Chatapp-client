@@ -2,8 +2,7 @@ import React from 'react';
 
 
 export default function MyFallbackComponent({ error, resetErrorBoundary }) {
-  const root = window.document.documentElement;
-  root.classList.add('dark');
+
   return (
     <div className="min-h-[100dvh] w-full bg-background relative flex items-center justify-center p-4 font-sans selection:bg-destructive/30 overflow-hidden">
       

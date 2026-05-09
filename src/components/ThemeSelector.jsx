@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Palette, Check, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
-import { Button } from "../components/ui/button";
+import { Button } from "./ui/button";
 
 const themeOptions = [
   { id: 'theme-1', name: 'Classic Indigo', color: 'oklch(0.55 0.18 280)' },

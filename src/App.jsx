@@ -9,49 +9,45 @@ import { SocketProvider } from './context/SocketContext'
 import MyFallbackComponent from './pages/errorPage'
 import Layout from './pages/Layout.jsx';
 import { ConversationProvider } from './context/ConversationContext'
-
 import AuthPage from './pages/auth/authpage'
 import { ModeProvider } from './pages/mode';
-
-
-// Wrap your tree
 
 
 export default function App() {
   return (
     <ErrorBoundary FallbackComponent={MyFallbackComponent}>
-      <ThemeProvider>
-        <AuthProvider>
-          <SocketProvider>
-            <ConversationProvider>
-            <ChatProvider>
-              <BrowserRouter>
-                <Routes>
-                  {/* Guest only */}
-                  <Route path="/signin" element={<GuestRoute><AuthPage /></GuestRoute>} />
-                  <Route path="/signup" element={<GuestRoute><AuthPage /></GuestRoute>} />
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <ModeProvider>
+              <SocketProvider>
+                <ConversationProvider>
+                  <ChatProvider>
+                    <Routes>
+                      <Route path="/signin" element={<GuestRoute><AuthPage /></GuestRoute>} />
+                      <Route path="/signup" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-                  {/* Protected Dashboard/Profile */}
+                      {/* Protected Dashboard/Profile */}
 
-                  <Route path="/chat" element={
-                    <ProtectedRoute>
-                      {/* Updated: Swapped hardcoded hex colors for your bg-background variable */}
-                      <div className="h-screen w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
-                        <ModeProvider>
-                          <Layout />
-                        </ModeProvider>
-                      </div>
-                    </ProtectedRoute>
-                  } />
+                      <Route path="/chat" element={
+                        <ProtectedRoute>
+                          {/* Updated: Swapped hardcoded hex colors for your bg-background variable */}
+                          <div className="h-screen w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
+                            <Layout />
 
-                  <Route path="*" element={<Navigate to="/chat" replace />} />
-                </Routes>
-              </BrowserRouter>
-            </ChatProvider>
-            </ConversationProvider>
-          </SocketProvider>
-        </AuthProvider>
-      </ThemeProvider>
+                          </div>
+                        </ProtectedRoute>
+                      } />
+
+                      <Route path="*" element={<Navigate to="/chat" replace />} />
+                    </Routes>
+                  </ChatProvider>
+                </ConversationProvider>
+              </SocketProvider>
+            </ModeProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
     </ErrorBoundary>
 
   )

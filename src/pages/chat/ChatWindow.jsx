@@ -14,7 +14,7 @@ export default function ChatWindow({
     messages = [], 
     onSendMessage,
     isTyping,
-    onTyping // <-- Added prop
+    onTyping 
 }) {
     const { user: currentUser } = useAuth(); 
 
@@ -105,7 +105,7 @@ export default function ChatWindow({
 
                             return (
                                 <MessageBubble
-                                    key={message._id || message.clientMessageId || Math.random()}
+                                    key={message._id || message.clientMessageId}
                                     message={message}
                                     isOwn={isMyMessage} 
                                 />

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SigninForm } from './signin-form';
 import { SignupForm } from './signup-form';
-import { ThemeToggle_Lite } from '../../css/ThemeToggle.jsx';
+import { ThemeToggle_Lite } from '../../components/ThemeToggle.jsx';
 import { MessageCircle } from 'lucide-react';
 
 export default function AuthPage() {
