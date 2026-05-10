@@ -90,7 +90,7 @@ export default function Profile() {
           </div>
         </div>
         <h2 className="mt-4 text-xl font-bold">.{user?.name || 'Anonymous'}</h2>
-        <p className="text-sm text-green-500 font-medium">online</p>
+        <p className="text-sm text-green-500 font-medium">Online</p>
       </div>
 
       <div className="px-4 space-y-1">

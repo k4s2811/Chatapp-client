@@ -51,7 +51,7 @@ const NavigationRail = () => {
   return (
     <TooltipProvider delayDuration={0}>
       <div className="w-16 flex flex-col items-center py-4 border-r
-       border-border bg-background h-screen shrink-0">
+       border-border bg-background h-[100dvh] shrink-0">
 
         <div className="flex flex-col gap-4 flex-1">
           {navItems.map((item) => (

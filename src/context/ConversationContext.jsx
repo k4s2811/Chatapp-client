@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { conversationApi } from "../api/conversationApi";
 import { usersApi } from "../api/auth";
 import { useAuth } from "./AuthContext";
@@ -17,18 +17,20 @@ export const ConversationProvider = ({ children }) => {
 
     const activeConvRef = useRef(activeConversation);
 
+    // Extract ID to prevent unnecessary re-fetches when profile data changes
+    const currentUserId = String(currentUser?.id || currentUser?._id || '');
+
     useEffect(() => {
         activeConvRef.current = activeConversation;
     }, [activeConversation]);
 
     const loadConversations = useCallback(async () => {
-        if (!currentUser) return;
+        if (!currentUserId) return;
         setIsLoading(true);
 
         try {
             const convRes = await conversationApi.getConversations();
             let fetchedConvs = convRes.data?.data || convRes.data || [];
-            const myId = String(currentUser.id || currentUser._id);
 
             fetchedConvs = fetchedConvs.map(conv => {
                 const hasMessage = conv.lastMessage && conv.lastMessage.content;
@@ -36,7 +38,7 @@ export const ConversationProvider = ({ children }) => {
                 if (!(hasMessage || isActive)) return null;
 
                 const myParticipantRecord = conv.participants?.find(
-                    p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === myId
+                    p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === currentUserId
                 );
                 
                 const lastReadId = myParticipantRecord?.lastReadMessageId;
@@ -44,7 +46,7 @@ export const ConversationProvider = ({ children }) => {
                 const senderId = conv.lastMessage?.senderId;
 
                 let hasUnread = false;
-                if (lastMsgId && String(senderId) !== myId && String(lastReadId) !== String(lastMsgId)) {
+                if (lastMsgId && String(senderId) !== currentUserId && String(lastReadId) !== String(lastMsgId)) {
                     hasUnread = true;
                 }
 
@@ -56,7 +58,7 @@ export const ConversationProvider = ({ children }) => {
             fetchedConvs.forEach(conv => {
                 conv.participants?.forEach(p => {
                     const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
-                    if (pId !== myId && typeof p.userId !== 'object') {
+                    if (pId !== currentUserId && typeof p.userId !== 'object') {
                         userIdsToFetch.add(pId);
                     }
                 });
@@ -90,14 +92,14 @@ export const ConversationProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [currentUser]);
+    }, [currentUserId]);
 
     useEffect(() => {
         loadConversations();
     }, [loadConversations]);
 
 
-    // 2. REAL-TIME SOCKET LISTENERS
+    // REAL-TIME SOCKET LISTENERS
     useEffect(() => {
         if (!socket) return;
 
@@ -118,10 +120,9 @@ export const ConversationProvider = ({ children }) => {
                         createdAt: message.createdAt || new Date().toISOString()
                     };
 
-                    const myId = currentUser?.id || currentUser?._id;
                     if (
                         String(activeConvRef.current) !== String(message.conversationId) &&
-                        String(message.senderId) !== String(myId)
+                        String(message.senderId) !== currentUserId
                     ) {
                         conv.hasUnread = true; 
                     }
@@ -165,11 +166,11 @@ export const ConversationProvider = ({ children }) => {
             socket.off("new_message", handleNewMessage);
             socket.off("messages_read", handleMessagesRead);
         };
-    }, [socket, currentUser, loadConversations]);
+    }, [socket, currentUserId, loadConversations]);
 
 
-    // 3. ROUTING & CLICK HANDLERS
-    const startOrSelectConversation = async (targetUser) => {
+    // ROUTING & CLICK HANDLERS (Wrapped in useCallback)
+    const startOrSelectConversation = useCallback(async (targetUser) => {
         const formattedUser = {
             id: targetUser._id || targetUser.id,
             name: targetUser.name || targetUser.email?.split('@')[0] || 'User',
@@ -186,11 +187,9 @@ export const ConversationProvider = ({ children }) => {
             setActiveConversation(convId);
 
             if (conversationData.lastMessage?.messageId) {
-                // Inform the DB
                 conversationApi.markConversationRead(convId, conversationData.lastMessage.messageId).catch(err => {
                     console.error("Failed to mark conversation as read:", err);
                 });
-                // Inform the other user in real-time
                 if (socket) {
                     socket.emit("mark_read", { conversationId: convId, messageId: conversationData.lastMessage.messageId });
                 }
@@ -227,19 +226,35 @@ export const ConversationProvider = ({ children }) => {
         } catch (err) {
             console.error("Error routing conversation:", err);
         }
-    };
+    }, [socket, currentUser]);
 
-    const clearConversation = () => {
+    const clearConversation = useCallback(() => {
         setActiveConversation(null);
         setSelectedUser(null);
-    };
+    }, []);
+
+    // Memoized Context Value
+    const contextValue = useMemo(() => ({
+        conversations, 
+        setConversations, 
+        activeConversation, 
+        setActiveConversation,
+        selectedUser, 
+        setSelectedUser, 
+        startOrSelectConversation, 
+        isLoading,
+        clearConversation
+    }), [
+        conversations, 
+        activeConversation, 
+        selectedUser, 
+        startOrSelectConversation, 
+        isLoading, 
+        clearConversation
+    ]);
 
     return (
-        <ConversationContext.Provider value={{
-            conversations, setConversations, activeConversation, setActiveConversation,
-            selectedUser, setSelectedUser, startOrSelectConversation, isLoading,
-            clearConversation
-        }}>
+        <ConversationContext.Provider value={contextValue}>
             {children}
         </ConversationContext.Provider>
     );

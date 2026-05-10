@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
@@ -6,11 +6,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 const MessageInput = ({ onSend, disabled, onTyping }) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef(null);
+  
   const typingTimeoutRef = useRef(null); 
+  const isTypingRef = useRef(false); 
 
   useEffect(() => {
     if (!disabled) textareaRef.current?.focus();
   }, [disabled]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -24,11 +32,15 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     autoResize();
 
     if (onTyping && !disabled) {
-      onTyping(true); 
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        onTyping(true); 
+      }
       
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       
       typingTimeoutRef.current = setTimeout(() => {
+        isTypingRef.current = false;
         onTyping(false);
       }, 2000);
     }
@@ -42,6 +54,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
       
       if (onTyping) {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        isTypingRef.current = false;
         onTyping(false);
       }
 
@@ -82,7 +95,8 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
               placeholder="Type a message..."
               disabled={disabled}
               rows={1}
-              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px]"
+              aria-label="Message input"
+              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
               style={{ maxHeight: '120px' }}
             />
 
@@ -110,4 +124,4 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
   );
 };
 
-export default MessageInput;
+export default memo(MessageInput);

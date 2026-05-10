@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext"; 
 import { useConversation } from "./ConversationContext"; 
@@ -20,17 +20,17 @@ export const ChatProvider = ({ children }) => {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Prevent React closure bugs inside socket listeners
-  const activeConvRef = useRef(activeConversation);
+  // 1. STABILIZE DEPENDENCIES: Extract String ID to prevent unnecessary re-renders
+  const currentUserId = String(user?.id || user?._id || '');
 
-  // ALWAYS keep the ref strictly synced with the active conversation
+  // 2. CLOSURE PROTECTION: Keep ref strictly synced with the active conversation
+  const activeConvRef = useRef(activeConversation);
   useEffect(() => {
     activeConvRef.current = activeConversation;
   }, [activeConversation]);
   
-  // 1. Fetch History & Handle State Reset
+  // 3. FETCH HISTORY (For Offline Users / First Load)
   useEffect(() => {
-    // Instantly clear old chat data to prevent flashing
     setMessages([]);
     setTypingUsers([]);
     setHasMore(true); 
@@ -65,7 +65,7 @@ export const ChatProvider = ({ children }) => {
     };
   }, [activeConversation]);
 
-  // 2. Load More Messages (Pagination)
+  // 4. LOAD MORE MESSAGES (Wrapped in useCallback)
   const loadMoreMessages = useCallback(async () => {
     if (!hasMore || isFetchingMore || !messages.length || !activeConversation) return;
 
@@ -94,9 +94,11 @@ export const ChatProvider = ({ children }) => {
     }
   }, [hasMore, isFetchingMore, messages, activeConversation]);
 
-  // 3. Delete Message Action
-  const deleteMessage = async (messageId) => {
+  // 5. DELETE MESSAGE (Wrapped in useCallback)
+  const deleteMessage = useCallback(async (messageId) => {
     if (!messageId) return;
+    
+    // Optimistic UI Update
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg._id === messageId || msg.clientMessageId === messageId) {
@@ -116,21 +118,21 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error("Failed to delete message:", error);
     }
-  };
+  }, []); // Empty deps because it uses functional setState
 
-  // 4. Room Management
+  // 6. ROOM MANAGEMENT
   useEffect(() => {
     if (!socket || !activeConversation) return;
+    // Tell the backend to put this user in the socket room
     socket.emit("join_conversation", activeConversation);
     return () => socket.emit("leave_conversation", activeConversation);
   }, [socket, activeConversation]);
 
-  // 5. Socket Listeners
+  // 7. REAL-TIME SOCKET LISTENERS
   useEffect(() => {
     if (!socket) return;
 
     const handleNewMessage = (message) => {
-      // FIX: Force String comparison because MongoDB ObjectIDs occasionally fail strict equality!
       if (String(message.conversationId) !== String(activeConvRef.current)) return;
       
       setMessages((prev) => {
@@ -139,8 +141,7 @@ export const ChatProvider = ({ children }) => {
         return [...prev, message];
       });
 
-      const myId = String(user?.id || user?._id);
-      if (String(message.senderId) !== myId) {
+      if (String(message.senderId) !== currentUserId) {
         socket.emit("mark_read", {
           conversationId: message.conversationId,
           messageId: message._id || message.clientMessageId
@@ -182,13 +183,12 @@ export const ChatProvider = ({ children }) => {
       socket.off("typing", handleTyping);
       socket.off("message_deleted", handleMessageDeleted);
     };
-  }, [socket, user]);
+  }, [socket, currentUserId]); 
 
-  // 6. Sending Data
-  const sendMessage = ({ conversationId, text, attachments = [] }) => {
+  // 8. SEND MESSAGE (Socket-First Pattern, Wrapped in useCallback)
+  const sendMessage = useCallback(({ conversationId, text, attachments = [] }) => {
     if (!socket) return;
 
-    const currentUserId = user?.id || user?._id;
     const tempMessage = {
       conversationId,
       text,
@@ -199,38 +199,55 @@ export const ChatProvider = ({ children }) => {
       sending: true
     };
 
+    // Show message instantly on sender's screen
     setMessages((prev) => [...prev, tempMessage]);
 
+    // Emit to backend (backend handles MongoDB saving and broadcasting)
     socket.emit("send_message", tempMessage, (response) => {
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg.clientMessageId === tempMessage.clientMessageId) {
+            // Update the temporary message with the real DB _id upon success
             return { ...msg, sending: false, failed: !response.success, _id: response.messageId || msg._id };
           }
           return msg;
         })
       );
     });
-  };
+  }, [socket, currentUserId]);
 
-  const sendTyping = (conversationId, isTyping) => {
+  // 9. SEND TYPING INDICATOR (Wrapped in useCallback)
+  const sendTyping = useCallback((conversationId, isTyping) => {
     if (!socket) return;
     socket.emit("typing", { conversationId, isTyping });
-  };
+  }, [socket]);
+
+  // 10. PREVENT APP-WIDE RE-RENDERS
+  const contextValue = useMemo(() => ({
+    messages, 
+    setMessages, 
+    typingUsers, 
+    sendMessage, 
+    sendTyping, 
+    isLoadingMessages,
+    loadMoreMessages, 
+    hasMore,          
+    isFetchingMore,
+    deleteMessage
+  }), [
+    messages, 
+    typingUsers, 
+    sendMessage, 
+    sendTyping, 
+    isLoadingMessages, 
+    loadMoreMessages, 
+    hasMore, 
+    isFetchingMore, 
+    deleteMessage
+  ]);
 
   return (
-    <ChatContext.Provider value={{ 
-      messages, 
-      setMessages, 
-      typingUsers, 
-      sendMessage, 
-      sendTyping, 
-      isLoadingMessages,
-      loadMoreMessages, 
-      hasMore,          
-      isFetchingMore,
-      deleteMessage
-    }}>
+    <ChatContext.Provider value={contextValue}>
       {children}
     </ChatContext.Provider>
   );

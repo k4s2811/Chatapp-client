@@ -22,14 +22,14 @@ export default function Layout() {
         sendTyping(activeConversation, isTypingState);
     };
 
-    const isTyping = selectedUser && typingUsers.some(id => 
+    const isTyping = selectedUser && typingUsers.some(id =>
         String(id) === String(selectedUser.id || selectedUser._id)
     );
 
     return (
-        <div className="h-screen w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
+        <div className="h-[100dvh] w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
             <NavigationRail />
-            
+
             {(mode === 'chat' || mode === 'groups') && (
                 <Sidebar />
             )}

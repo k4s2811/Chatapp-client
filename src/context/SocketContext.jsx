@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
 import { useAuth } from "./AuthContext";
 
@@ -8,11 +8,12 @@ export const SocketProvider = ({ children }) => {
     const { user } = useAuth();
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
-
     const [onlineUsers, setOnlineUsers] = useState(new Set());
 
+    const userId = String(user?.id || user?._id || '');
+
     useEffect(() => {
-        if (!user) {
+        if (!userId) {
             disconnectSocket();
             setSocket(null);
             setOnlineUsers(new Set());
@@ -22,42 +23,46 @@ export const SocketProvider = ({ children }) => {
         const socketInstance = connectSocket();
         setSocket(socketInstance);
 
-        socketInstance.on("connect", () => {
+        const handleConnect = () => {
             setConnected(true);
             console.log("Socket connected");
-        });
+        };
 
-        socketInstance.on("disconnect", () => {
+        const handleDisconnect = () => {
             setConnected(false);
             console.log("Socket disconnected");
             setOnlineUsers(new Set());
-        });
-
-        socketInstance.on("user_online", ({ userId }) => {
-            setOnlineUsers(prev => {
-                const next = new Set(prev);
-                next.add(String(userId));
-                return next;
-            });
-        });
-
-        socketInstance.on("user_offline", ({ userId }) => {
-            setOnlineUsers(prev => {
-                const next = new Set(prev);
-                next.delete(String(userId));
-                return next;
-            });
-        });
-
-        return () => {
-            socketInstance.off("connect");
-            socketInstance.off("disconnect");
-            socketInstance.off("user_online");
-            socketInstance.off("user_offline");
-            disconnectSocket();
         };
 
-    }, [user]);
+        const handleUserOnline = ({ userId: onlineId }) => {
+            setOnlineUsers(prev => {
+                const next = new Set(prev);
+                next.add(String(onlineId));
+                return next;
+            });
+        };
+
+        const handleUserOffline = ({ userId: offlineId }) => {
+            setOnlineUsers(prev => {
+                const next = new Set(prev);
+                next.delete(String(offlineId));
+                return next;
+            });
+        };
+
+        socketInstance.on("connect", handleConnect);
+        socketInstance.on("disconnect", handleDisconnect);
+        socketInstance.on("user_online", handleUserOnline);
+        socketInstance.on("user_offline", handleUserOffline);
+
+        return () => {
+            socketInstance.off("connect", handleConnect);
+            socketInstance.off("disconnect", handleDisconnect);
+            socketInstance.off("user_online", handleUserOnline);
+            socketInstance.off("user_offline", handleUserOffline);
+            disconnectSocket();
+        };
+    }, [userId]);
 
     const checkUserOnline = useCallback((targetUserId) => {
         if (!socket || !targetUserId) return;
@@ -74,15 +79,15 @@ export const SocketProvider = ({ children }) => {
         });
     }, [socket]);
 
+    const contextValue = useMemo(() => ({
+        socket,
+        connected,
+        onlineUsers,
+        checkUserOnline
+    }), [socket, connected, onlineUsers, checkUserOnline]);
+
     return (
-        <SocketContext.Provider
-            value={{
-                socket,
-                connected,
-                onlineUsers,
-                checkUserOnline
-            }}
-        >
+        <SocketContext.Provider value={contextValue}>
             {children}
         </SocketContext.Provider>
     );
@@ -90,6 +95,6 @@ export const SocketProvider = ({ children }) => {
 
 export const useSocket = () => {
     const context = useContext(SocketContext);
-    if (!context) throw new Error("useSocket must be inside provider");
+    if (!context) throw new Error("useSocket must be used within a SocketProvider");
     return context;
 };

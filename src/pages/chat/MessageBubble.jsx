@@ -1,60 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, CheckCheck, Copy, Clock, Trash2, Ban } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAuth } from '../../context/AuthContext';
-import { useConversation } from '../../context/ConversationContext';
-import { useChat } from '../../context/ChatContext';
 
-const MessageBubble = ({ message, isOwn }) => {
+const MessageBubble = ({ 
+  message, 
+  isOwn, 
+  status,     
+  onDelete    
+}) => {
   const [isCopied, setIsCopied] = useState(false);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
 
-  const { user } = useAuth();
-  const { conversations, activeConversation } = useConversation();
-  const { deleteMessage } = useChat();
-
   const messageText = message?.content?.text || message?.text || "";
-  const messageDate = message?.createdAt || message?.timestamp || new Date();
+  const messageDate = message?.createdAt || new Date();
+  const isDeleted = message?.isDeleted;
 
-  const isDeleted = message?.isDeleted || messageText === "This message was deleted";
-
-  const status = useMemo(() => {
-    if (!isOwn) return null;
-    if (message.sending) return "sending";
-    if (!message._id) return "delivered";
-
-    const myId = String(user?.id || user?._id);
-    const currentChat = conversations.find(c => String(c._id || c.id) === String(activeConversation));
-
-    const otherParticipant = currentChat?.participants?.find(
-      p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) !== myId
-    );
-
-    const otherUserLastReadId = otherParticipant?.lastReadMessageId;
-
-    if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
-      return "read";
-    }
-
-    return "delivered";
-  }, [isOwn, message, user, conversations, activeConversation]);
-
-
-  const formatTime = (date) => {
-    if (!date) return '';
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true });
-    } catch (error) {
-      return '';
-    }
-  };
-
-  const renderTextWithLinks = (text) => {
-    if (!text) return null;
+  const parsedContent = useMemo(() => {
+    if (!messageText) return null;
 
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const parts = messageText.split(urlRegex);
 
     return parts.map((part, index) => {
       if (part.match(urlRegex)) {
@@ -72,7 +38,16 @@ const MessageBubble = ({ message, isOwn }) => {
       }
       return <span key={index}>{part}</span>;
     });
-  };
+  }, [messageText]);
+
+  const formattedTime = useMemo(() => {
+    if (!messageDate) return '';
+    try {
+      return formatDistanceToNow(new Date(messageDate), { addSuffix: true });
+    } catch {
+      return '';
+    }
+  }, [messageDate]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -88,16 +63,14 @@ const MessageBubble = ({ message, isOwn }) => {
 
       setTimeout(() => {
         setIsCopied(false);
-      }, 2000);
+      }, 200);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
   };
 
   const handleDelete = () => {
-    if (message._id) {
-      deleteMessage(message._id);
-    }
+    if (onDelete) onDelete();
     setContextMenu({ show: false, x: 0, y: 0 });
   };
 
@@ -114,19 +87,21 @@ const MessageBubble = ({ message, isOwn }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
         className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
-        data-testid={`message-bubble-${message._id || message.clientMessageId}`}
+        data-testid={`message-bubble-${message._id}`}
       >
         <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} relative group`}>
-
           <div
             onContextMenu={handleContextMenu}
             onDoubleClick={handleContextMenu}
-            className={`${isOwn
-              ? 'bg-message-sent text-message-sent-foreground'
-              : 'bg-message-received text-message-received-foreground border border-border'
-              } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
-              } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
-              }`}
+            className={`${
+              isOwn
+                ? 'bg-message-sent text-message-sent-foreground'
+                : 'bg-message-received text-message-received-foreground border border-border'
+            } rounded-2xl ${
+              isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
+            } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${
+              isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
+            }`}
           >
             {isDeleted ? (
               <div className="flex items-center gap-2 italic text-[15px]">
@@ -135,21 +110,21 @@ const MessageBubble = ({ message, isOwn }) => {
               </div>
             ) : (
               <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words cursor-pointer">
-                {renderTextWithLinks(messageText)}
+                {parsedContent}
               </p>
             )}
           </div>
 
           <div className={`flex items-center gap-1.5 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
             <span className="text-xs text-muted-foreground">
-              {formatTime(messageDate)}
+              {formattedTime}
             </span>
 
             {isOwn && !isDeleted && (
               <div className="text-muted-foreground flex items-center">
-                {status === 'read' ? (
+                {status === 'delivered' ? (
                   <CheckCheck size={14} className="text-primary" />
-                ) : status === 'delivered' ? (
+                ) : status === 'read' ? (
                   <Check size={14} />
                 ) : (
                   <Clock size={12} className="opacity-70" />
@@ -171,7 +146,6 @@ const MessageBubble = ({ message, isOwn }) => {
               )}
             </AnimatePresence>
           </div>
-
         </div>
       </motion.div>
 
@@ -209,4 +183,18 @@ const MessageBubble = ({ message, isOwn }) => {
   );
 };
 
-export default MessageBubble;
+const areEqual = (prevProps, nextProps) => {
+  const prevText = prevProps.message?.content?.text || prevProps.message?.text;
+  const nextText = nextProps.message?.content?.text || nextProps.message?.text;
+
+  return (
+    prevProps.message._id === nextProps.message._id &&
+    prevProps.message.clientMessageId === nextProps.message.clientMessageId &&
+    prevText === nextText &&
+    prevProps.message.isDeleted === nextProps.message.isDeleted &&
+    prevProps.isOwn === nextProps.isOwn &&
+    prevProps.status === nextProps.status
+  );
+};
+
+export default memo(MessageBubble, areEqual);

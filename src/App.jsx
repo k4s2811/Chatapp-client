@@ -27,12 +27,9 @@ export default function App() {
                       <Route path="/signin" element={<GuestRoute><AuthPage /></GuestRoute>} />
                       <Route path="/signup" element={<GuestRoute><AuthPage /></GuestRoute>} />
 
-                      {/* Protected Dashboard/Profile */}
-
                       <Route path="/chat" element={
                         <ProtectedRoute>
-                          {/* Updated: Swapped hardcoded hex colors for your bg-background variable */}
-                          <div className="h-screen w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
+                          <div className="h-[100dvh] w-full flex overflow-hidden bg-background text-foreground" data-testid="app-container">
                             <Layout />
 
                           </div>
