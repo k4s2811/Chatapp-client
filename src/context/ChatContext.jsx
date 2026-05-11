@@ -1,17 +1,17 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSocket } from "./SocketContext";
-import { useAuth } from "./AuthContext"; 
-import { useConversation } from "./ConversationContext"; 
-import { messageApi } from "../api/messageApi"; 
+import { useAuth } from "./AuthContext";
+import { useConversation } from "./ConversationContext";
+import { messageApi } from "../api/messageApi";
 
 const ChatContext = createContext(null);
 const MESSAGES_PER_PAGE = 20;
 
 export const ChatProvider = ({ children }) => {
   const { socket } = useSocket();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   const { activeConversation } = useConversation();
-  
+
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -28,16 +28,16 @@ export const ChatProvider = ({ children }) => {
   useEffect(() => {
     activeConvRef.current = activeConversation;
   }, [activeConversation]);
-  
+
   // 3. FETCH HISTORY (For Offline Users / First Load)
   useEffect(() => {
     setMessages([]);
     setTypingUsers([]);
-    setHasMore(true); 
-    
+    setHasMore(true);
+
     if (!activeConversation) return;
 
-    let isMounted = true; 
+    let isMounted = true;
     setIsLoadingMessages(true);
 
     const fetchHistory = async () => {
@@ -46,7 +46,7 @@ export const ChatProvider = ({ children }) => {
         if (isMounted) {
           const fetchedMessages = res.data?.data || res.data || [];
           setMessages(fetchedMessages);
-          
+
           if (fetchedMessages.length < MESSAGES_PER_PAGE) {
             setHasMore(false);
           }
@@ -61,7 +61,7 @@ export const ChatProvider = ({ children }) => {
     fetchHistory();
 
     return () => {
-      isMounted = false; 
+      isMounted = false;
     };
   }, [activeConversation]);
 
@@ -71,19 +71,19 @@ export const ChatProvider = ({ children }) => {
 
     setIsFetchingMore(true);
     try {
-      const oldestMessageId = messages[0]._id || messages[0].clientMessageId; 
-      
-      const res = await messageApi.getMessages(activeConversation, { 
+      const oldestMessageId = messages[0]._id || messages[0].clientMessageId;
+
+      const res = await messageApi.getMessages(activeConversation, {
         limit: MESSAGES_PER_PAGE,
-        before: oldestMessageId 
+        before: oldestMessageId
       });
-      
+
       const olderMessages = res.data?.data || res.data || [];
-      
+
       if (olderMessages.length > 0) {
         setMessages((prev) => [...olderMessages, ...prev]);
       }
-      
+
       if (olderMessages.length < MESSAGES_PER_PAGE) {
         setHasMore(false);
       }
@@ -97,7 +97,7 @@ export const ChatProvider = ({ children }) => {
   // 5. DELETE MESSAGE (Wrapped in useCallback)
   const deleteMessage = useCallback(async (messageId) => {
     if (!messageId) return;
-    
+
     // Optimistic UI Update
     setMessages((prev) =>
       prev.map((msg) => {
@@ -134,7 +134,7 @@ export const ChatProvider = ({ children }) => {
 
     const handleNewMessage = (message) => {
       if (String(message.conversationId) !== String(activeConvRef.current)) return;
-      
+
       setMessages((prev) => {
         const exists = prev.some((m) => m.clientMessageId === message.clientMessageId || m._id === message._id);
         if (exists) return prev;
@@ -183,18 +183,25 @@ export const ChatProvider = ({ children }) => {
       socket.off("typing", handleTyping);
       socket.off("message_deleted", handleMessageDeleted);
     };
-  }, [socket, currentUserId]); 
+  }, [socket, currentUserId]);
 
   // 8. SEND MESSAGE (Socket-First Pattern, Wrapped in useCallback)
   const sendMessage = useCallback(({ conversationId, text, attachments = [] }) => {
     if (!socket) return;
+
+    // Creates a random string using the current time and some math
+    const generateId = () => {
+      return window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).substring(2);
+    };
 
     const tempMessage = {
       conversationId,
       text,
       attachments,
       senderId: currentUserId,
-      clientMessageId: crypto.randomUUID(),
+      clientMessageId: generateId(),
       createdAt: new Date().toISOString(),
       sending: true
     };
@@ -224,25 +231,25 @@ export const ChatProvider = ({ children }) => {
 
   // 10. PREVENT APP-WIDE RE-RENDERS
   const contextValue = useMemo(() => ({
-    messages, 
-    setMessages, 
-    typingUsers, 
-    sendMessage, 
-    sendTyping, 
+    messages,
+    setMessages,
+    typingUsers,
+    sendMessage,
+    sendTyping,
     isLoadingMessages,
-    loadMoreMessages, 
-    hasMore,          
+    loadMoreMessages,
+    hasMore,
     isFetchingMore,
     deleteMessage
   }), [
-    messages, 
-    typingUsers, 
-    sendMessage, 
-    sendTyping, 
-    isLoadingMessages, 
-    loadMoreMessages, 
-    hasMore, 
-    isFetchingMore, 
+    messages,
+    typingUsers,
+    sendMessage,
+    sendTyping,
+    isLoadingMessages,
+    loadMoreMessages,
+    hasMore,
+    isFetchingMore,
     deleteMessage
   ]);
 
