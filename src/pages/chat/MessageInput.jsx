@@ -79,7 +79,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95" disabled={disabled}>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95 hidden sm:flex" disabled={disabled}>
                 <Paperclip size={18} />
               </Button>
             </TooltipTrigger>
@@ -96,7 +96,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
               disabled={disabled}
               rows={1}
               aria-label="Message input"
-              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
+              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-base md:text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
               style={{ maxHeight: '120px' }}
             />
 

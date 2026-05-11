@@ -162,7 +162,7 @@ export default function Sidebar() {
   }, [conversations, currentUser, deferredSearchTerm]);
 
   return (
-    <div className="w-[320px] md:w-[380px] flex flex-col border-r border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground h-full" data-testid="sidebar">
+    <div className="w-full h-full flex flex-col border-none shrink-0 bg-sidebar text-sidebar-foreground" data-testid="sidebar">
       <div className="p-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>

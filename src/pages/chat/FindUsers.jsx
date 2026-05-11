@@ -80,10 +80,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
   };
 
   return (
-    <div className="w-[320px] md:w-[380px] flex flex-col 
-    border-r border-sidebar-border shrink-0 bg-sidebar 
-    text-sidebar-foreground h-full" data-testid="find-users-panel">
-
+    <div className="w-full h-full flex flex-col border-none shrink-0 bg-sidebar text-sidebar-foreground" data-testid="find-users-panel">
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-between mb-4">

@@ -62,9 +62,7 @@ export default function Profile() {
 
   return (
 
-    <div className="w-[320px] md:w-[380px] flex flex-col border-r 
-    border-sidebar-border shrink-0 bg-sidebar text-sidebar-foreground 
-    h-screen overflow-y-auto" data-testid="sidebar">
+    <div className="w-full h-full flex flex-col border-none shrink-0 bg-sidebar text-sidebar-foreground overflow-y-auto" data-testid="sidebar">
 
       <div className="flex items-center justify-between p-4 sticky top-0 bg-sidebar z-10">
         <div className="flex items-center gap-4">

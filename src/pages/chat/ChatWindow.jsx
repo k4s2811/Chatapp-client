@@ -14,7 +14,8 @@ export default function ChatWindow({
     messages = [],
     onSendMessage,
     isTyping,
-    onTyping
+    onTyping,
+    onBack // Newly added prop for mobile navigation
 }) {
     const { user: currentUser } = useAuth();
     const { onlineUsers, checkUserOnline } = useSocket();
@@ -33,7 +34,6 @@ export default function ChatWindow({
 
     const activeConvId = conversation?.id || conversation?._id;
 
-    // Reset layout trackers when shifting channels
     useEffect(() => {
         setShowScrollButton(false);
     }, [activeConvId]);
@@ -86,7 +86,8 @@ export default function ChatWindow({
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden" data-testid="chat-window">
-            <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} />
+            {/* Passed onBack here */}
+            <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
             <MessageList 
                 renderedMessages={renderedMessages}
