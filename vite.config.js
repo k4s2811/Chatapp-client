@@ -18,24 +18,24 @@ export default defineConfig({
 
             // SOCKET.IO
             "/socket.io": {
-                target: "https://chatapp-server-1-s022.onrender.com",
+                target: "http://localhost:3002",
                 ws: true,
                 changeOrigin: true,
             },
 
             // USER SERVICE
             "/user": {
-                target: "https://chatapp-server-px1c.onrender.com/chat",
+                target: "http://localhost:3001/chat",
                 changeOrigin: true,
             },
 
             // CHAT SERVICE
             "/conversations": {
-                target: "https://chatapp-server-1-s022.onrender.com/chat",
+                target: "http://localhost:3002/chat",
                 changeOrigin: true,
             },
             "/messages": {
-                target: "https://chatapp-server-1-s022.onrender.com/chat",
+                target: "http://localhost:3002/chat",
                 changeOrigin: true,
             },
         },

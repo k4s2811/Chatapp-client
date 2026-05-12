@@ -22,6 +22,6 @@ export const GuestRoute = ({ children }) => {
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-[var(--color-bg)]"><Spinner size={32} /></div>;
   if (user) return <Navigate to="/chat" replace />;
-  
+
   return children;
 }

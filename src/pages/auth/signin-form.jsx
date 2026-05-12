@@ -38,6 +38,10 @@ export function SigninForm({ onSwitchToSignup }) {
         }
     };
 
+    const handleGoogleLogin = () => {
+        window.location.href = 'http://localhost:3001/chat/user/google';
+    };
+
     return (
         <form onSubmit={handleSubmit}>
             <FieldGroup>
@@ -134,7 +138,7 @@ export function SigninForm({ onSwitchToSignup }) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <Button type="button" variant="outline" disabled={loading}>
+                    <Button type="button" variant="outline" disabled={loading} onClick={handleGoogleLogin}>
                         <svg className="h-4 w-4" viewBox="0 0 24 24">
                             <path
                                 fill="currentColor"
