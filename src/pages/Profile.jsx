@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/auth'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -10,6 +9,8 @@ import { ThemeToggle } from '../components/ThemeToggle'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from '../components/ui/field'
 import { motion } from 'framer-motion'
 import { ThemeSelector } from '../components/ThemeSelector';
+import { useAuthStore } from '../store/useAuthStore'
+
 
 const passwordRequirements = [
   { label: 'At least 6 characters', test: (p) => p.length >= 6 },
@@ -19,7 +20,8 @@ const passwordRequirements = [
 
 
 export default function Profile() {
-  const { user, signout } = useAuth()
+  const user = useAuthStore(state => state.user)
+  const signout = useAuthStore(state => state.signout)
   const navigate = useNavigate()
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [error, setError] = useState('')

@@ -1,11 +1,11 @@
-import { useTheme } from "../context/ThemeContext.jsx";
-import { Button } from "../components/ui/button.jsx";
+import { useThemeStore } from '../store/useThemeStore';
+import { Button } from "./ui/button.jsx";
 import { Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion"
 
-
 export const ThemeToggle = () => {
-    const { toggleDark } = useTheme();
+    const isDark = useThemeStore(state => state.isDark);
+    const toggleDark = useThemeStore(state => state.toggleDark);
 
     return (
         <motion.div
@@ -29,7 +29,9 @@ export const ThemeToggle = () => {
 }
 
 export const ThemeToggle_Lite = () => {
-    const { toggleDark } = useTheme();
+    const isDark = useThemeStore(state => state.isDark);
+    const toggleDark = useThemeStore(state => state.toggleDark);
+    
     return (
         <div className="absolute right-4 top-4 z-50">
             <Button

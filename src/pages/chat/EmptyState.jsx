@@ -1,10 +1,8 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 
 const EmptyState = () => {
-  const { theme } = useTheme();
 
   return (
     <div

@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, CheckCheck, Copy, Clock, Trash2, Ban } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const MessageBubble = ({ 
-  message, 
-  isOwn, 
-  status,     
-  onDelete    
+const MessageBubble = ({
+  message,
+  isOwn,
+  status,
+  onDelete
 }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
@@ -52,7 +52,10 @@ const MessageBubble = ({
   const handleContextMenu = (e) => {
     e.preventDefault();
     if (isDeleted) return;
-    setContextMenu({ show: true, x: e.pageX, y: e.pageY });
+    const menuWidth = 110;
+    const posX = e.pageX - menuWidth;
+    const safeX = posX < 20 ? 20 : posX;
+    setContextMenu({ show: true, x: safeX, y: e.pageY });
   };
 
   const handleCopy = async () => {
@@ -93,15 +96,12 @@ const MessageBubble = ({
           <div
             onContextMenu={handleContextMenu}
             onDoubleClick={handleContextMenu}
-            className={`${
-              isOwn
+            className={`${isOwn
                 ? 'bg-message-sent text-message-sent-foreground'
                 : 'bg-message-received text-message-received-foreground border border-border'
-            } rounded-2xl ${
-              isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
-            } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${
-              isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
-            }`}
+              } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
+              } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
+              }`}
           >
             {isDeleted ? (
               <div className="flex items-center gap-2 italic text-[15px]">

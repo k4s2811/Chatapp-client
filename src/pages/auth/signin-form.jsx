@@ -4,12 +4,12 @@ import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field'
 
 
 export function SigninForm({ onSwitchToSignup }) {
-    const { signin } = useAuth();
+    const signin = useAuthStore(state => state.signin);
     const navigate = useNavigate();
     const [form, setForm] = useState({ email: '', password: '', remember: true });
     const [error, setError] = useState('');

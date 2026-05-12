@@ -4,7 +4,7 @@ import { Eye, EyeOff, Mail, Lock, User, Loader2, Check, X } from 'lucide-react'
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field'
 
 const passwordRequirements = [
@@ -14,7 +14,7 @@ const passwordRequirements = [
 ]
 
 export function SignupForm({ onSwitchToSignin }) {
-    const { signup } = useAuth();
+    const signup = useAuthStore(state => state.signup);
     const navigate = useNavigate();
     const [form, setForm] = useState({ email: '', name: '', password: '' });
     const [error, setError] = useState('');

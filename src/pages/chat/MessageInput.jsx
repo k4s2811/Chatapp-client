@@ -2,13 +2,19 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { useThemeStore } from '../../store/useThemeStore';
 
 const MessageInput = ({ onSend, disabled, onTyping }) => {
   const [message, setMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
   const textareaRef = useRef(null);
-  
-  const typingTimeoutRef = useRef(null); 
-  const isTypingRef = useRef(false); 
+  const emojiPickerRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
+
+  const isDark = useThemeStore(state => state.isDark);
 
   useEffect(() => {
     if (!disabled) textareaRef.current?.focus();
@@ -18,6 +24,16 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const autoResize = () => {
@@ -34,15 +50,24 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     if (onTyping && !disabled) {
       if (!isTypingRef.current) {
         isTypingRef.current = true;
-        onTyping(true); 
+        onTyping(true);
       }
-      
+
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      
+
       typingTimeoutRef.current = setTimeout(() => {
         isTypingRef.current = false;
         onTyping(false);
       }, 2000);
+    }
+  };
+  
+  const handleEmojiClick = (emojiObject) => {
+    setMessage((prev) => prev + emojiObject.emoji);
+
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      autoResize();
     }
   };
 
@@ -51,7 +76,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     if (message.trim() && !disabled) {
       onSend(message.trim());
       setMessage('');
-      
+
       if (onTyping) {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         isTypingRef.current = false;
@@ -60,7 +85,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
 
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
-        textareaRef.current.focus(); 
+        textareaRef.current.focus();
       }
     }
   };
@@ -76,11 +101,11 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     <TooltipProvider delayDuration={300}>
       <div className="bg-transparent px-4 py-3 z-10">
         <form onSubmit={handleSubmit} className="flex items-end gap-2 max-w-5xl mx-auto">
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95 hidden sm:flex" disabled={disabled}>
-                <Paperclip size={18} />
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10 rounded-full hover:bg-accent text-muted-foreground transition-all active:scale-95" disabled={disabled}>
+                <Paperclip size={18} strokeWidth={2} />
               </Button>
             </TooltipTrigger>
             <TooltipContent sideOffset={5}><p>Attach file</p></TooltipContent>
@@ -96,14 +121,35 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
               disabled={disabled}
               rows={1}
               aria-label="Message input"
-              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-base md:text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
+              /* MAGIC FIX FOR iOS ZOOM: text-[16px] md:text-sm */
+              className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-[16px] md:text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
               style={{ maxHeight: '120px' }}
             />
 
+            {showEmojiPicker && (
+              <div
+                ref={emojiPickerRef}
+                className="absolute bottom-12 right-0 mb-2 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200 shadow-2xl"
+              >
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme={isDark ? Theme.DARK : Theme.LIGHT}
+                  lazyLoadEmojis={true}
+                  autoFocusSearch={false}
+                  searchPlaceHolder="Search emojis..."
+                  width={300}
+                  height={400}
+                />
+              </div>
+            )}
+
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="absolute right-1 bottom-1 h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors active:scale-90" disabled={disabled}>
-                  <Smile size={18} />
+                <Button type="button" variant="ghost" size="icon"
+                  className="absolute right-1 bottom-1 h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors active:scale-90"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  disabled={disabled}>
+                  <Smile size={26} strokeWidth={3} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent sideOffset={5}><p>Add emoji</p></TooltipContent>
@@ -113,7 +159,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button type="submit" disabled={!message.trim() || disabled} className={`shrink-0 h-10 w-10 rounded-full transition-all active:scale-90 ${message.trim() ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground'}`}>
-                <Send size={16} className={`${message.trim() ? 'text-primary-foreground translate-x-0.5' : ''}`} />
+                <Send size={16} strokeWidth={2} className={`${message.trim() ? 'text-primary-foreground translate-x-0.5' : ''}`} />
               </Button>
             </TooltipTrigger>
             <TooltipContent sideOffset={5}><p>Send message</p></TooltipContent>

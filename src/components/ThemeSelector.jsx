@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Palette, Check, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { Palette, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../context/ThemeContext';
+import { useThemeStore } from '../store/useThemeStore';
 import { Button } from "./ui/button";
 
 const themeOptions = [
@@ -13,7 +13,8 @@ const themeOptions = [
 ];
 
 export const ThemeSelector = () => {
-  const { baseColor, setBaseColor } = useTheme();
+  const baseColor = useThemeStore(state => state.baseColor);
+  const setBaseColor = useThemeStore(state => state.setBaseColor);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -32,7 +33,7 @@ export const ThemeSelector = () => {
         {isOpen && (
           <>
             <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
-            
+
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -46,26 +47,26 @@ export const ThemeSelector = () => {
               border-b border-border/50">
                 Choose Palette
               </div>
-              
+
               <div className="space-y-1 mt-1">
                 {themeOptions.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => {
-                      setBaseColor(t.id); 
+                      setBaseColor(t.id);
                       setIsOpen(false);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-sm
-                      ${baseColor === t.id 
-                        ? 'bg-primary/10 text-primary' 
+                      ${baseColor === t.id
+                        ? 'bg-primary/10 text-primary'
                         : 'hover:bg-muted text-foreground'
                       }
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="h-5 w-5 rounded-full border border-border shadow-inner" 
-                        style={{ backgroundColor: t.color }} 
+                      <div
+                        className="h-5 w-5 rounded-full border border-border shadow-inner"
+                        style={{ backgroundColor: t.color }}
                       />
                       <span className={`font-medium ${baseColor === t.id ? 'font-bold' : ''}`}>
                         {t.name}

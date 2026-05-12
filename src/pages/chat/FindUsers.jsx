@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
-import { ThemeToggle } from '../../components/ThemeToggle.jsx';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { usersApi } from '../../api/auth'; 
 
 const UserSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -16,8 +15,7 @@ const UserSkeleton = () => (
 );
 
 const FindUsers = ({ selectedUserId, onSelectUser }) => {
-
-  const { getAllUsers } = useAuth();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [users, setUsers] = useState([]);
@@ -43,7 +41,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
     setError(null);
 
     try {
-      const res = await getAllUsers(pageNum, searchStr);
+      const res = await usersApi.getAllUsers(pageNum, searchStr);
       const newUsers = res?.data?.data || res?.data || [];
       const pagination = res?.data?.pagination;
 
@@ -60,7 +58,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
       setIsLoading(false);
       setIsFetchingMore(false);
     }
-  }, [getAllUsers]);
+  }, []);
 
   useEffect(() => {
     fetchUsers(page, debouncedSearch);
@@ -90,7 +88,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
             Find Users
           </h1>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            {/* Any button */}
           </div>
         </div>
 

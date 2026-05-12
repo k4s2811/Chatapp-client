@@ -8,7 +8,7 @@ const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
     const userInitial = userName.charAt(0).toUpperCase();
 
     return (
-        <header className="backdrop-blur-xl bg-background/80 border-b border-border px-4 md:px-6 py-3 md:py-4 z-20 sticky top-0">
+        <header className="w-full bg-background/95 backdrop-blur-xl border-b border-border px-4 md:px-6 py-3 md:py-4 shadow-sm">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 md:gap-3">
                     {/* Mobile Back Button */}

@@ -4,9 +4,11 @@ import MessageList from './MessageList';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import EmptyState from './EmptyState';
-import { useAuth } from '../../context/AuthContext';
-import { useSocket } from '../../context/SocketContext';
-import { useChat } from '../../context/ChatContext';
+
+// 1. Use the new Zustand stores instead of Context
+import { useAuthStore } from '../../store/useAuthStore';
+import { useSocketStore } from '../../store/useSocketStore';
+import { useChatStore } from '../../store/useChatStore';
 
 export default function ChatWindow({
     conversation,
@@ -15,11 +17,16 @@ export default function ChatWindow({
     onSendMessage,
     isTyping,
     onTyping,
-    onBack // Newly added prop for mobile navigation
+    onBack // Prop for mobile navigation
 }) {
-    const { user: currentUser } = useAuth();
-    const { onlineUsers, checkUserOnline } = useSocket();
-    const { loadMoreMessages, hasMore, isFetchingMore, deleteMessage } = useChat();
+    // 2. Select states directly from Zustand stores
+    const currentUser = useAuthStore(state => state.user);
+    const onlineUsers = useSocketStore(state => state.onlineUsers);
+    const checkUserOnline = useSocketStore(state => state.checkUserOnline);
+    const loadMoreMessages = useChatStore(state => state.loadMoreMessages);
+    const hasMore = useChatStore(state => state.hasMore);
+    const isFetchingMore = useChatStore(state => state.isFetchingMore);
+    const deleteMessage = useChatStore(state => state.deleteMessage);
 
     const [showScrollButton, setShowScrollButton] = useState(false);
 
@@ -86,7 +93,6 @@ export default function ChatWindow({
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden" data-testid="chat-window">
-            {/* Passed onBack here */}
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
             <MessageList 

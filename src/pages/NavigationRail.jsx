@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Group, MessageSquare, Users, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../components/ui/tooltip';
-import { useMode } from './mode';
+import { useModeStore } from '../store/useModeStore';
 
 const NavItem = ({ icon: Icon, label, mode, badge, active, onClick }) => (
   <Tooltip>
@@ -43,7 +43,8 @@ const NavigationRail = () => {
     { icon: Users, label: 'Users', mode: 'users' },
     { icon: Group, label: 'Groups', mode: 'groups' }
   ];
-  const { mode, setMode } = useMode();
+  const mode = useModeStore(state => state.mode);
+  const setMode = useModeStore(state => state.setMode);
   const [lastMode, setLastMode] = useState('chat');
 
   return (

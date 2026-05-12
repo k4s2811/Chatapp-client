@@ -2,12 +2,11 @@ import React, { useState, useMemo, useEffect, useDeferredValue, memo } from 'rea
 import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
-import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
-import { useConversation } from '../../context/ConversationContext';
-import { useSocket } from '../../context/SocketContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useConversationStore } from '../../store/useConversationStore';
+import { useSocketStore } from '../../store/useSocketStore';
 
 
 const ConversationItem = memo(({ chat, isSelected, isTyping, onClick }) => {
@@ -76,14 +75,27 @@ const ConversationSkeleton = () => (
   </div>
 );
 
+// ... your imports are perfect
+
 export default function Sidebar() {
-  const { user: currentUser } = useAuth();
-  const { socket } = useSocket();
-  const { conversations, activeConversation, startOrSelectConversation, isLoading } = useConversation();
+  const currentUser = useAuthStore(state => state.user);
+  const socket = useSocketStore(state => state.socket);
+  const conversations = useConversationStore(state => state.conversations);
+  const activeConversation = useConversationStore(state => state.activeConversation);
+  const startOrSelectConversation = useConversationStore(state => state.startOrSelectConversation);
+  const isLoading = useConversationStore(state => state.isLoading);
+
+  // 1. Pull the load function from the store
+  const loadConversations = useConversationStore(state => state.loadConversations);
 
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [typingData, setTypingData] = useState({});
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
 
   // Dynamic socket listener for typing updates
   useEffect(() => {
@@ -169,7 +181,7 @@ export default function Sidebar() {
             Chats
           </h1>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            {/* Any button */}
           </div>
         </div>
 
