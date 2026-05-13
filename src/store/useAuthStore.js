@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, usersApi } from '../api/auth';
+import { authApi, usersApi } from '../api/auth'; // Ensure usersApi is imported
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -7,10 +7,8 @@ export const useAuthStore = create((set, get) => ({
 
   setUser: (user) => set({ user }),
   
-  // ADD THIS: Missing signup action
   signup: async (formValues) => {
     const res = await authApi.signup(formValues);
-    // If your backend automatically logs the user in after signing up:
     if (res.data?.data?.accessToken) {
       localStorage.setItem('accessToken', res.data.data.accessToken);
       set({ user: res.data.data.user });
@@ -49,4 +47,16 @@ export const useAuthStore = create((set, get) => ({
         set({ loading: false });
     }
   },
+
+  // ADD THIS: The new updateProfile action
+  updateProfile: async (profileData) => {
+    const res = await usersApi.updateProfile(profileData);
+    if (res.data?.success) {
+      // Merge the updated fields (like name, bio, avatar) into the existing user object
+      set((state) => ({
+        user: { ...state.user, ...res.data.data }
+      }));
+    }
+    return res;
+  }
 }));

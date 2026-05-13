@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { conversationApi } from '../api/conversationApi';
 import { usersApi } from '../api/auth';
-import { useAuthStore } from './useAuthStore'; // Direct read from Auth
-import { useSocketStore } from './useSocketStore'; // Direct read from Socket
+import { useAuthStore } from './useAuthStore';
+import { useSocketStore } from './useSocketStore';
 
 export const useConversationStore = create((set, get) => ({
     conversations: [],
@@ -86,10 +86,14 @@ export const useConversationStore = create((set, get) => ({
         const currentUser = useAuthStore.getState().user;
         const socket = useSocketStore.getState().socket;
 
+        // --- UPDATED: Keep all the required fields ---
         const formattedUser = {
             id: targetUser._id || targetUser.id,
             name: targetUser.name || targetUser.email?.split('@')[0] || 'User',
             avatar: targetUser.avatar_url || targetUser.avatar || null,
+            email: targetUser.email || null,
+            bio: targetUser.bio || null,
+            created_at: targetUser.created_at || targetUser.createdAt || null,
         };
 
         set({ selectedUser: formattedUser });

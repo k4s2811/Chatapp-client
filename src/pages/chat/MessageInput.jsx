@@ -13,6 +13,9 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
   const emojiPickerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
+  
+  // New ref to handle the hover grace period
+  const emojiHoverTimeoutRef = useRef(null);
 
   const isDark = useThemeStore(state => state.isDark);
 
@@ -20,9 +23,11 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     if (!disabled) textareaRef.current?.focus();
   }, [disabled]);
 
+  // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (emojiHoverTimeoutRef.current) clearTimeout(emojiHoverTimeoutRef.current);
     };
   }, []);
 
@@ -87,6 +92,7 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
         textareaRef.current.style.height = 'auto';
         textareaRef.current.focus();
       }
+      setShowEmojiPicker(false); // Close picker on send
     }
   };
 
@@ -95,6 +101,20 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  // --- HOVER LOGIC HANDLERS ---
+  const handleEmojiMouseEnter = () => {
+    if (disabled) return;
+    if (emojiHoverTimeoutRef.current) clearTimeout(emojiHoverTimeoutRef.current);
+    setShowEmojiPicker(true);
+  };
+
+  const handleEmojiMouseLeave = () => {
+    // Give the user 300ms to move their mouse from the button to the picker
+    emojiHoverTimeoutRef.current = setTimeout(() => {
+      setShowEmojiPicker(false);
+    }, 300);
   };
 
   return (
@@ -121,7 +141,6 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
               disabled={disabled}
               rows={1}
               aria-label="Message input"
-              /* MAGIC FIX FOR iOS ZOOM: text-[16px] md:text-sm */
               className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-[16px] md:text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
               style={{ maxHeight: '120px' }}
             />
@@ -129,6 +148,9 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
             {showEmojiPicker && (
               <div
                 ref={emojiPickerRef}
+                // Add the same hover handlers here so staying on the menu keeps it open
+                onMouseEnter={handleEmojiMouseEnter}
+                onMouseLeave={handleEmojiMouseLeave}
                 className="absolute bottom-12 right-0 mb-2 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200 shadow-2xl"
               >
                 <EmojiPicker
@@ -145,10 +167,16 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon"
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon"
                   className="absolute right-1 bottom-1 h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors active:scale-90"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  disabled={disabled}>
+                  disabled={disabled}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)} // Keep click for mobile users!
+                  onMouseEnter={handleEmojiMouseEnter}
+                  onMouseLeave={handleEmojiMouseLeave}
+                >
                   <Smile size={26} strokeWidth={3} />
                 </Button>
               </TooltipTrigger>

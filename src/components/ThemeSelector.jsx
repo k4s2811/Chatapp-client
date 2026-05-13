@@ -10,6 +10,7 @@ const themeOptions = [
   { id: 'theme-3', name: 'Emerald Wave', color: 'oklch(0.60 0.18 150)' },
   { id: 'theme-4', name: 'Ocean Blue', color: 'oklch(0.60 0.15 250)' },
   { id: 'theme-5', name: 'Glass', color: 'oklch(0.60 0.18 150)' },
+  { id: 'theme-6', name: 'Sunset', color: 'oklch(0.62 0.22 15)' },
 ];
 
 export const ThemeSelector = () => {

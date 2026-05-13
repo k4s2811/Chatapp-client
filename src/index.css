@@ -207,50 +207,121 @@
 }
 
 .theme-5 {
-    /* A cleaner, modern Slate-tinted palette for Light Mode */
-    --background: oklch(0.99 0.005 240);
-    /* Very faint blue-white */
-    --foreground: oklch(0.20 0.02 240);
-    /* Deep charcoal blue */
-
+    /* Cool, airy light backgrounds */
+    --background: oklch(0.98 0.01 255);
+    --foreground: oklch(0.20 0.02 255);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.20 0.02 240);
-
+    --card-foreground: oklch(0.20 0.02 255);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.20 0.02 240);
+    --popover-foreground: oklch(0.20 0.02 255);
 
-    /* Primary: Deep Midnight instead of pure Black */
-    --primary: oklch(0.25 0.03 240);
-    --primary-foreground: oklch(0.99 0.005 240);
+    /* Vibrant Indigo Primary */
+    --primary: oklch(0.50 0.18 255);
+    --primary-foreground: oklch(0.98 0.01 255);
 
-    --secondary: oklch(0.96 0.01 240);
-    --secondary-foreground: oklch(0.25 0.03 240);
+    /* Soft Slate Neutrals */
+    --secondary: oklch(0.94 0.02 255);
+    --secondary-foreground: oklch(0.30 0.03 255);
+    --muted: oklch(0.94 0.02 255);
+    --muted-foreground: oklch(0.50 0.03 255);
+    --accent: oklch(0.94 0.02 255);
+    --accent-foreground: oklch(0.50 0.18 255);
 
-    --muted: oklch(0.95 0.01 240);
-    --muted-foreground: oklch(0.45 0.02 240);
-
-    --accent: oklch(0.94 0.015 240);
-    --accent-foreground: oklch(0.20 0.02 240);
-
-    --destructive: oklch(0.60 0.18 25);
+    /* Alerts */
+    --destructive: oklch(0.55 0.22 25);
     --destructive-foreground: oklch(1 0 0);
 
-    --border: oklch(0.91 0.01 240);
-    --input: oklch(0.91 0.01 240);
-    --ring: oklch(0.25 0.03 240);
+    /* Borders and Inputs */
+    --border: oklch(0.90 0.02 255);
+    --input: oklch(0.90 0.02 255);
+    --ring: oklch(0.50 0.18 255);
 
-    /* Message Bubbles - Modern look */
-    --message-sent: oklch(0.35 0.05 240);
-    /* Slate Blue */
-    --message-sent-foreground: oklch(0.99 0.005 240);
-    --message-received: oklch(0.94 0.015 240);
-    --message-received-foreground: oklch(0.20 0.02 240);
-
-    /* Functional Colors */
-    --online: oklch(0.72 0.16 150);
-    --typing: oklch(0.65 0.02 240);
+    /* Charts */
+    --chart-1: oklch(0.50 0.18 255);
+    --chart-2: oklch(0.60 0.12 200);
+    --chart-3: oklch(0.70 0.10 150);
+    --chart-4: oklch(0.80 0.08 100);
+    --chart-5: oklch(0.85 0.05 50);
 
     --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar: oklch(0.96 0.01 255);
+    --sidebar-foreground: oklch(0.30 0.03 255);
+    --sidebar-primary: oklch(0.50 0.18 255);
+    --sidebar-primary-foreground: oklch(0.98 0.01 255);
+    --sidebar-accent: oklch(0.92 0.02 255);
+    --sidebar-accent-foreground: oklch(0.20 0.02 255);
+    --sidebar-border: oklch(0.88 0.02 255);
+    --sidebar-ring: oklch(0.50 0.18 255);
+
+    /* Chat Specifics */
+    --message-sent: var(--primary);
+    --message-sent-foreground: var(--primary-foreground);
+    --message-received: oklch(0.94 0.02 255);
+    --message-received-foreground: oklch(0.20 0.02 255);
+
+    --online: oklch(0.65 0.18 145);
+    --typing: oklch(0.50 0.03 255);
+}
+
+.theme-6 {
+    /* Warm, sunny light backgrounds */
+    --background: oklch(0.99 0.01 50);
+    --foreground: oklch(0.25 0.04 30);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.25 0.04 30);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.25 0.04 30);
+
+    /* Vibrant Coral/Sunset Primary */
+    --primary: oklch(0.62 0.22 15);
+    --primary-foreground: oklch(0.98 0.01 15);
+
+    /* Warm, peach-tinted Neutrals */
+    --secondary: oklch(0.94 0.04 40);
+    --secondary-foreground: oklch(0.35 0.05 30);
+    --muted: oklch(0.94 0.04 40);
+    --muted-foreground: oklch(0.55 0.05 30);
+    --accent: oklch(0.94 0.04 40);
+    --accent-foreground: oklch(0.62 0.22 15);
+
+    /* Alerts */
+    --destructive: oklch(0.55 0.22 25);
+    --destructive-foreground: oklch(1 0 0);
+
+    /* Borders and Inputs */
+    --border: oklch(0.90 0.04 40);
+    --input: oklch(0.90 0.04 40);
+    --ring: oklch(0.62 0.22 15);
+
+    /* Charts */
+    --chart-1: oklch(0.62 0.22 15);
+    --chart-2: oklch(0.65 0.18 45);
+    --chart-3: oklch(0.70 0.15 75);
+    --chart-4: oklch(0.75 0.12 105);
+    --chart-5: oklch(0.80 0.09 135);
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar: oklch(0.96 0.02 45);
+    --sidebar-foreground: oklch(0.35 0.05 30);
+    --sidebar-primary: oklch(0.62 0.22 15);
+    --sidebar-primary-foreground: oklch(0.98 0.01 15);
+    --sidebar-accent: oklch(0.92 0.04 40);
+    --sidebar-accent-foreground: oklch(0.25 0.04 30);
+    --sidebar-border: oklch(0.88 0.04 40);
+    --sidebar-ring: oklch(0.62 0.22 15);
+
+    /* Chat Specifics */
+    --message-sent: var(--primary);
+    --message-sent-foreground: var(--primary-foreground);
+    --message-received: oklch(0.94 0.04 40);
+    --message-received-foreground: oklch(0.25 0.04 30);
+
+    --online: oklch(0.65 0.18 145);
+    --typing: oklch(0.62 0.22 15);
 }
 
 .theme-1.dark {
@@ -445,50 +516,117 @@
 }
 
 .theme-5.dark {
-    /* Background: A deep, rich charcoal with a hint of navy */
-    --background: oklch(0.14 0.01 240);
-    --foreground: oklch(0.92 0.01 240);
+    /* Deep, sophisticated dark slate backgrounds */
+    --background: oklch(0.18 0.02 255);
+    --foreground: oklch(0.95 0.01 255);
+    --card: oklch(0.22 0.02 255);
+    --card-foreground: oklch(0.95 0.01 255);
+    --popover: oklch(0.22 0.02 255);
+    --popover-foreground: oklch(0.95 0.01 255);
 
-    /* Cards & Popovers: Slightly lighter than background to create elevation */
-    --card: oklch(0.18 0.015 240);
-    --card-foreground: oklch(0.92 0.01 240);
+    /* Bright, glowing Indigo for dark mode */
+    --primary: oklch(0.65 0.18 255);
+    --primary-foreground: oklch(0.18 0.02 255);
 
-    --popover: oklch(0.18 0.015 240);
-    --popover-foreground: oklch(0.92 0.01 240);
+    /* Elevated Dark Neutrals */
+    --secondary: oklch(0.26 0.02 255);
+    --secondary-foreground: oklch(0.90 0.01 255);
+    --muted: oklch(0.26 0.02 255);
+    --muted-foreground: oklch(0.70 0.02 255);
+    --accent: oklch(0.26 0.02 255);
+    --accent-foreground: oklch(0.65 0.18 255);
 
-    /* Primary: Now the dominant "bright" color (Soft White/Slate) */
-    --primary: oklch(0.92 0.01 240);
-    --primary-foreground: oklch(0.14 0.01 240);
+    /* Alerts */
+    --destructive: oklch(0.45 0.20 25);
+    --destructive-foreground: oklch(0.95 0 0);
 
-    /* Secondary & Muted: Deep tones for UI elements that should stay in the back */
-    --secondary: oklch(0.22 0.02 240);
-    --secondary-foreground: oklch(0.92 0.01 240);
+    /* Borders and Inputs */
+    --border: oklch(0.30 0.02 255);
+    --input: oklch(0.26 0.02 255);
+    --ring: oklch(0.65 0.18 255);
 
-    --muted: oklch(0.22 0.02 240);
-    --muted-foreground: oklch(0.65 0.02 240);
+    /* Charts */
+    --chart-1: oklch(0.65 0.18 255);
+    --chart-2: oklch(0.70 0.12 200);
+    --chart-3: oklch(0.75 0.10 150);
+    --chart-4: oklch(0.80 0.08 100);
+    --chart-5: oklch(0.85 0.05 50);
 
-    --accent: oklch(0.25 0.02 240);
-    --accent-foreground: oklch(0.92 0.01 240);
+    /* Sidebar */
+    --sidebar: oklch(0.16 0.02 255);
+    --sidebar-foreground: oklch(0.70 0.02 255);
+    --sidebar-primary: oklch(0.65 0.18 255);
+    --sidebar-primary-foreground: oklch(0.18 0.02 255);
+    --sidebar-accent: oklch(0.24 0.02 255);
+    --sidebar-accent-foreground: oklch(0.95 0.01 255);
+    --sidebar-border: oklch(0.25 0.02 255);
+    --sidebar-ring: oklch(0.65 0.18 255);
 
-    /* Destructive: Slightly less saturated for dark mode comfort */
-    --destructive: oklch(0.50 0.15 25);
+    /* Chat Specifics */
+    --message-sent: var(--primary);
+    --message-sent-foreground: var(--primary-foreground);
+    --message-received: oklch(0.26 0.02 255);
+    --message-received-foreground: oklch(0.95 0.01 255);
+
+    --online: oklch(0.65 0.18 145);
+    --typing: oklch(0.70 0.02 255);
+}
+
+.theme-6.dark {
+    /* Deep, rich plum/blackberry dark backgrounds */
+    --background: oklch(0.18 0.03 300);
+    --foreground: oklch(0.95 0.02 30);
+    --card: oklch(0.22 0.04 300);
+    --card-foreground: oklch(0.95 0.02 30);
+    --popover: oklch(0.22 0.04 300);
+    --popover-foreground: oklch(0.95 0.02 30);
+
+    /* Electrifying Hot Pink/Coral for dark mode */
+    --primary: oklch(0.68 0.22 15);
+    --primary-foreground: oklch(0.15 0.03 300);
+
+    /* Elevated Warm Dark Neutrals */
+    --secondary: oklch(0.28 0.05 300);
+    --secondary-foreground: oklch(0.90 0.02 30);
+    --muted: oklch(0.28 0.05 300);
+    --muted-foreground: oklch(0.70 0.03 300);
+    --accent: oklch(0.28 0.05 300);
+    --accent-foreground: oklch(0.68 0.22 15);
+
+    /* Alerts */
+    --destructive: oklch(0.55 0.22 25);
     --destructive-foreground: oklch(1 0 0);
 
-    /* Borders & Inputs: Subtle so the UI doesn't look like a grid */
-    --border: oklch(0.26 0.02 240);
-    --input: oklch(0.22 0.02 240);
-    --ring: oklch(0.50 0.05 240);
-    /* Softer focus ring */
+    /* Borders and Inputs */
+    --border: oklch(0.32 0.05 300);
+    --input: oklch(0.28 0.05 300);
+    --ring: oklch(0.68 0.22 15);
 
-    /* Message Bubbles: Sent (Light) vs Received (Dark Surface) */
-    --message-sent: oklch(0.92 0.01 240);
-    --message-sent-foreground: oklch(0.14 0.01 240);
-    --message-received: oklch(0.22 0.02 240);
-    --message-received-foreground: oklch(0.92 0.01 240);
+    /* Charts */
+    --chart-1: oklch(0.68 0.22 15);
+    --chart-2: oklch(0.72 0.18 45);
+    --chart-3: oklch(0.76 0.15 75);
+    --chart-4: oklch(0.80 0.12 105);
+    --chart-5: oklch(0.84 0.09 135);
 
-    /* Functional Colors */
-    --online: oklch(0.70 0.15 150);
-    --typing: oklch(0.50 0.02 240);
+    /* Sidebar */
+    --sidebar: oklch(0.16 0.03 300);
+    --sidebar-foreground: oklch(0.70 0.03 300);
+    --sidebar-primary: oklch(0.68 0.22 15);
+    --sidebar-primary-foreground: oklch(0.15 0.03 300);
+    --sidebar-accent: oklch(0.25 0.04 300);
+    --sidebar-accent-foreground: oklch(0.95 0.02 30);
+    --sidebar-border: oklch(0.25 0.04 300);
+    --sidebar-ring: oklch(0.68 0.22 15);
+
+    /* Chat Specifics */
+    --message-sent: var(--primary);
+    --message-sent-foreground: var(--primary-foreground);
+    --message-received: oklch(0.28 0.05 300);
+    --message-received-foreground: oklch(0.95 0.02 30);
+
+    --online: oklch(0.65 0.18 145);
+    --typing: oklch(0.70 0.03 300);
 }
 
 @theme inline {
