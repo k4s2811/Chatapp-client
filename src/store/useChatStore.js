@@ -146,10 +146,7 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
-    handleSocketTyping: ({ userId, isTyping, conversationId }) => {
-        const activeConversation = useConversationStore.getState().activeConversation;
-        if (String(conversationId) !== String(activeConversation)) return;
-
+    handleSocketTyping: ({ userId, isTyping }) => {
         set((state) => {
             if (isTyping) return { typingUsers: state.typingUsers.includes(userId) ? state.typingUsers : [...state.typingUsers, userId] };
             return { typingUsers: state.typingUsers.filter((id) => id !== userId) };

@@ -105,6 +105,10 @@ export const useConversationStore = create((set, get) => ({
 
             set({ activeConversation: convId });
 
+            if (socket) {
+                socket.emit("join_conversation", convId);
+            }
+
             if (conversationData.lastMessage?.messageId) {
                 conversationApi.markConversationRead(convId, conversationData.lastMessage.messageId).catch(console.error);
                 if (socket) {

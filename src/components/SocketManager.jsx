@@ -9,6 +9,7 @@ export default function SocketManager() {
     const initSocket = useSocketStore(state => state.initSocket);
     const activeConversation = useConversationStore(state => state.activeConversation);
     const hasJoinedRef = useRef(false);
+    const joinedRoomsRef = useRef(new Set());
 
     // 1. Initialize socket when user logs in
     useEffect(() => {
@@ -36,15 +37,9 @@ export default function SocketManager() {
         };
     }, [socket]);
 
-    // 3. Room Joining — re-joins on socket reconnect (connected flips false→true)
-    // connected is in deps so this re-fires after a disconnect/reconnect cycle,
-    // re-emitting join_conversation so the server re-adds us to the room.
-    // The hasJoinedRef guard prevents a redundant fetchHistory on reconnect,
-    // while remaining false on conversation switch so fetchHistory runs then.
+    // 3. Active Conversation — fetch history on first visit, clear messages on switch
     useEffect(() => {
         if (!socket || !activeConversation) return;
-
-        socket.emit("join_conversation", activeConversation);
 
         if (!hasJoinedRef.current) {
             hasJoinedRef.current = true;
@@ -52,11 +47,35 @@ export default function SocketManager() {
         }
 
         return () => {
-            socket.emit("leave_conversation", activeConversation);
             useChatStore.getState().clearMessages();
             hasJoinedRef.current = false;
         };
     }, [socket, activeConversation, connected]);
+
+    // 4. Join ALL conversation rooms (for sidebar real-time updates: unread count, typing)
+    //    Fires on connect/reconnect and subscribes to new conversations appearing in the store.
+    useEffect(() => {
+        if (!socket || !connected) return;
+
+        joinedRoomsRef.current = new Set();
+
+        const joinAllRooms = () => {
+            const { conversations } = useConversationStore.getState();
+            conversations.forEach(conv => {
+                const convId = String(conv._id || conv.id);
+                if (convId && !joinedRoomsRef.current.has(convId)) {
+                    joinedRoomsRef.current.add(convId);
+                    socket.emit("join_conversation", convId);
+                }
+            });
+        };
+
+        joinAllRooms();
+
+        const unsub = useConversationStore.subscribe(joinAllRooms);
+
+        return () => unsub();
+    }, [socket, connected]);
 
     return null;
 }
