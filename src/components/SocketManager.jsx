@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSocketStore } from '../store/useSocketStore';
 import { useConversationStore } from '../store/useConversationStore';
 import { useChatStore } from '../store/useChatStore';
 
 export default function SocketManager() {
     const socket = useSocketStore(state => state.socket);
+    const connected = useSocketStore(state => state.connected);
     const initSocket = useSocketStore(state => state.initSocket);
     const activeConversation = useConversationStore(state => state.activeConversation);
+    const hasJoinedRef = useRef(false);
 
     // 1. Initialize socket when user logs in
     useEffect(() => {
@@ -34,17 +36,27 @@ export default function SocketManager() {
         };
     }, [socket]);
 
-    // 3. Room Joining
+    // 3. Room Joining — re-joins on socket reconnect (connected flips false→true)
+    // connected is in deps so this re-fires after a disconnect/reconnect cycle,
+    // re-emitting join_conversation so the server re-adds us to the room.
+    // The hasJoinedRef guard prevents a redundant fetchHistory on reconnect,
+    // while remaining false on conversation switch so fetchHistory runs then.
     useEffect(() => {
         if (!socket || !activeConversation) return;
+
         socket.emit("join_conversation", activeConversation);
-        useChatStore.getState().fetchHistory(activeConversation);
+
+        if (!hasJoinedRef.current) {
+            hasJoinedRef.current = true;
+            useChatStore.getState().fetchHistory(activeConversation);
+        }
 
         return () => {
             socket.emit("leave_conversation", activeConversation);
             useChatStore.getState().clearMessages();
+            hasJoinedRef.current = false;
         };
-    }, [socket, activeConversation]);
+    }, [socket, activeConversation, connected]);
 
-    return null; 
+    return null;
 }

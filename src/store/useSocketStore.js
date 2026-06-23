@@ -12,6 +12,7 @@ export const useSocketStore = create((set, get) => ({
     if (!userId) return;
 
     const socket = connectSocket();
+    if (!socket) return;
     
     socket.on("connect", () => set({ connected: true }));
     socket.on("disconnect", () => set({ connected: false, onlineUsers: new Set() }));

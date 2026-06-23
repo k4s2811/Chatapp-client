@@ -121,7 +121,7 @@ export const useChatStore = create((set, get) => ({
 
     sendTyping: (conversationId, isTyping) => {
         const socket = useSocketStore.getState().socket;
-        if (socket) socket.emit("typing", { conversationId, isTyping });
+        if (socket && conversationId) socket.emit("typing", { conversationId, isTyping });
     },
 
     // Handlers for Socket Events
@@ -156,7 +156,10 @@ export const useChatStore = create((set, get) => ({
         });
     },
 
-    handleSocketMessageDeleted: ({ messageId }) => {
+    handleSocketMessageDeleted: ({ messageId, conversationId }) => {
+        const activeConversation = useConversationStore.getState().activeConversation;
+        if (String(conversationId) !== String(activeConversation)) return;
+
         set((state) => ({
             messages: state.messages.map((msg) => {
                 if (msg._id === messageId || msg.clientMessageId === messageId) {

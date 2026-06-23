@@ -53,9 +53,11 @@ const MessageBubble = ({
     e.preventDefault();
     if (isDeleted) return;
     const menuWidth = 110;
+    const menuHeight = 80;
     const posX = e.pageX - menuWidth;
     const safeX = posX < 20 ? 20 : posX;
-    setContextMenu({ show: true, x: safeX, y: e.pageY });
+    const posY = e.pageY + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 10 : e.pageY;
+    setContextMenu({ show: true, x: safeX, y: posY });
   };
 
   const handleCopy = async () => {
@@ -66,7 +68,7 @@ const MessageBubble = ({
 
       setTimeout(() => {
         setIsCopied(false);
-      }, 200);
+      }, 1500);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
@@ -109,7 +111,7 @@ const MessageBubble = ({
                 <span>This message was deleted</span>
               </div>
             ) : (
-              <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-all md:break-words cursor-pointer">
+              <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer">
                 {parsedContent}
               </p>
             )}
@@ -122,9 +124,9 @@ const MessageBubble = ({
 
             {isOwn && !isDeleted && (
               <div className="text-muted-foreground flex items-center">
-                {status === 'delivered' ? (
+                {status === 'read' ? (
                   <CheckCheck size={14} className="text-primary" />
-                ) : status === 'read' ? (
+                ) : status === 'delivered' ? (
                   <Check size={14} />
                 ) : (
                   <Clock size={12} className="opacity-70" />

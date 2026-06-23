@@ -9,6 +9,7 @@ import EmptyState from './EmptyState';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocketStore } from '../../store/useSocketStore';
 import { useChatStore } from '../../store/useChatStore';
+import { useConversationStore } from '../../store/useConversationStore';
 
 export default function ChatWindow({
     conversation,
@@ -47,16 +48,21 @@ export default function ChatWindow({
 
     const currentUserId = String(currentUser?.id || currentUser?._id);
 
-    const otherUserLastReadId = useMemo(() => {
-        if (!conversation?.participants) return null;
+    const realConversation = useConversationStore(
+        state => state.conversations.find(c => String(c._id || c.id) === String(activeConvId))
+    );
 
-        const otherParticipant = conversation.participants.find(p => {
+    const otherUserLastReadId = useMemo(() => {
+        const participants = realConversation?.participants || conversation?.participants;
+        if (!participants) return null;
+
+        const otherParticipant = participants.find(p => {
             const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
             return pId !== currentUserId;
         });
 
         return otherParticipant?.lastReadMessageId;
-    }, [conversation?.participants, currentUserId]);
+    }, [realConversation?.participants, conversation?.participants, currentUserId]);
 
     const renderedMessages = useMemo(() => {
         return messages.map((message) => {
