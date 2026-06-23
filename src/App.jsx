@@ -14,6 +14,7 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    console.log("token is", token)
     if (token) {
       localStorage.setItem('accessToken', token);
       window.history.replaceState({}, document.title, window.location.pathname);

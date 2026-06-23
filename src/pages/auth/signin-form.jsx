@@ -39,6 +39,7 @@ export function SigninForm({ onSwitchToSignup }) {
     };
 
     const handleGoogleLogin = () => {
+        console.log("google button clicked")
         window.location.href = 'http://localhost:3001/chat/user/google';
     };
 
