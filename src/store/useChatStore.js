@@ -28,6 +28,16 @@ export const useChatStore = create((set, get) => ({
                 messages: fetchedMessages,
                 hasMore: fetchedMessages.length >= MESSAGES_PER_PAGE
             });
+
+            const currentUserId = String(useAuthStore.getState().user?.id || '');
+            const socket = useSocketStore.getState().socket;
+            const otherMessage = [...fetchedMessages].reverse().find(m => String(m.senderId) !== currentUserId);
+            if (otherMessage && socket) {
+                socket.emit("mark_read", {
+                    conversationId,
+                    messageId: otherMessage._id || otherMessage.clientMessageId
+                });
+            }
         } catch (error) {
             console.error("Failed to fetch messages:", error);
         } finally {

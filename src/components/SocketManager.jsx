@@ -28,12 +28,16 @@ export default function SocketManager() {
         socket.on("messages_read", handleSocketMessagesRead);
         socket.on("typing", handleSocketTyping);
         socket.on("message_deleted", handleSocketMessageDeleted);
+        socket.on("room_error", (err) => console.error("[Socket] Room error:", err.message));
+        socket.on("connect_error", (err) => console.error("[Socket] Connection error:", err.message));
 
         return () => {
             socket.off("new_message", onNewMessage);
             socket.off("messages_read", handleSocketMessagesRead);
             socket.off("typing", handleSocketTyping);
             socket.off("message_deleted", handleSocketMessageDeleted);
+            socket.off("room_error");
+            socket.off("connect_error");
         };
     }, [socket]);
 

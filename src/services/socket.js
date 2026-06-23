@@ -13,7 +13,7 @@ export const connectSocket = () => {
 
   if (!socket) {
     socket = io("/", {
-      auth: { token },
+      auth: (cb) => cb({ token: localStorage.getItem("accessToken") }),
       transports: ["websocket"],
       withCredentials: true,
       reconnection: true,

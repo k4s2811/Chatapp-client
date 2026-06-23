@@ -25,10 +25,6 @@ export const useConversationStore = create((set, get) => ({
             let fetchedConvs = convRes.data?.data || convRes.data || [];
 
             fetchedConvs = fetchedConvs.map(conv => {
-                const hasMessage = conv.lastMessage && conv.lastMessage.content;
-                const isActive = String(conv._id || conv.id) === String(get().activeConversation);
-                if (!(hasMessage || isActive)) return null;
-
                 const myParticipantRecord = conv.participants?.find(
                     p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === currentUserId
                 );
@@ -43,7 +39,7 @@ export const useConversationStore = create((set, get) => ({
                 }
 
                 return { ...conv, hasUnread };
-            }).filter(Boolean);
+            });
 
             // Fetch missing user details
             const userIdsToFetch = new Set();
@@ -118,16 +114,10 @@ export const useConversationStore = create((set, get) => ({
 
             // Optimistically update conversation list
             const currentConvs = get().conversations;
-            const cleanedPrev = currentConvs.filter(c => {
-                const hasRealMessage = c.lastMessage && c.lastMessage.content;
-                const isBeingOpenedRightNow = String(c._id || c.id) === String(convId);
-                return hasRealMessage || isBeingOpenedRightNow;
-            });
-
-            const exists = cleanedPrev.find(c => String(c._id || c.id) === String(convId));
+            const exists = currentConvs.find(c => String(c._id || c.id) === String(convId));
 
             if (exists) {
-                set({ conversations: cleanedPrev.map(c => 
+                set({ conversations: currentConvs.map(c => 
                     String(c._id || c.id) === String(convId) ? { ...c, hasUnread: false } : c
                 )});
             } else {
@@ -135,7 +125,7 @@ export const useConversationStore = create((set, get) => ({
                     ...conversationData,
                     hasUnread: false,
                     participants: [{ userId: formattedUser }, { userId: currentUser }]
-                }, ...cleanedPrev] });
+                }, ...currentConvs] });
             }
         } catch (err) {
             console.error("Error routing conversation:", err);
