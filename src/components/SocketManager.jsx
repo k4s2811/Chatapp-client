@@ -57,11 +57,9 @@ export default function SocketManager() {
     }, [socket, activeConversation, connected]);
 
     // 4. Join ALL conversation rooms (for sidebar real-time updates: unread count, typing)
-    //    Fires on connect/reconnect and subscribes to new conversations appearing in the store.
+    //    Fires on connect/reconnect. Subscribes only to conversations array changes.
     useEffect(() => {
         if (!socket || !connected) return;
-
-        joinedRoomsRef.current = new Set();
 
         const joinAllRooms = () => {
             const { conversations } = useConversationStore.getState();
@@ -76,7 +74,11 @@ export default function SocketManager() {
 
         joinAllRooms();
 
-        const unsub = useConversationStore.subscribe(joinAllRooms);
+        // PERF: Subscribe with selector so callback only fires when conversations array changes
+        const unsub = useConversationStore.subscribe(
+            (state) => state.conversations,
+            joinAllRooms
+        );
 
         return () => unsub();
     }, [socket, connected]);

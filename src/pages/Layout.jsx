@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import NavigationRail from "./NavigationRail";
 import Sidebar from "./chat/Sidebar";
 import ChatWindow from "./chat/ChatWindow";
@@ -8,45 +8,47 @@ import SocketManager from "../components/SocketManager";
 
 import { useModeStore } from "../store/useModeStore";
 import { useConversationStore } from "../store/useConversationStore";
-import { useChatStore } from "../store/useChatStore";
+
+// PERF: Removed useChatStore subscriptions from Layout — ChatWindow reads stores directly
 
 export default function Layout() {
     const mode = useModeStore((state) => state.mode);
-    const setMode = useModeStore((state) => state.setMode); // Extracted setMode for swipe
+    const setMode = useModeStore((state) => state.setMode);
     
     const activeConversation = useConversationStore((state) => state.activeConversation);
     const selectedUser = useConversationStore((state) => state.selectedUser);
     const startOrSelectConversation = useConversationStore((state) => state.startOrSelectConversation);
     const clearConversation = useConversationStore((state) => state.clearConversation);
-    
-    const messages = useChatStore((state) => state.messages);
-    const sendMessage = useChatStore((state) => state.sendMessage);
-    const typingUsers = useChatStore((state) => state.typingUsers);
-    const sendTyping = useChatStore((state) => state.sendTyping);
 
     const prevMode = useRef(mode);
-
-    // --- SWIPE LOGIC ---
+    // PERF: Use refs for swipe callbacks to avoid recreating handlers on every render
     const touchStartX = useRef(null);
     const touchStartY = useRef(null);
     const touchEndX = useRef(null);
     const touchEndY = useRef(null);
+    const modeRef = useRef(mode);
+    const activeConvRef = useRef(activeConversation);
+    const setModeRef = useRef(setMode);
+    useEffect(() => { modeRef.current = mode; });
+    useEffect(() => { activeConvRef.current = activeConversation; });
+    useEffect(() => { setModeRef.current = setMode; });
 
     const minSwipeDistance = 50;
 
-    const onTouchStart = (e) => {
+    // PERF: Swipe handlers are stable (no deps) — read refs instead of closure values
+    const onTouchStart = useCallback((e) => {
         touchEndX.current = null; 
         touchEndY.current = null;
         touchStartX.current = e.targetTouches[0].clientX;
         touchStartY.current = e.targetTouches[0].clientY;
-    };
+    }, []);
 
-    const onTouchMove = (e) => {
+    const onTouchMove = useCallback((e) => {
         touchEndX.current = e.targetTouches[0].clientX;
         touchEndY.current = e.targetTouches[0].clientY;
-    };
+    }, []);
 
-    const onTouchEnd = () => {
+    const onTouchEnd = useCallback(() => {
         if (!touchStartX.current || !touchEndX.current) return;
         
         const distanceX = touchStartX.current - touchEndX.current;
@@ -55,35 +57,21 @@ export default function Layout() {
         const isLeftSwipe = distanceX > minSwipeDistance;
         const isRightSwipe = distanceX < -minSwipeDistance;
 
-        // Ensure the swipe is mostly horizontal to prevent accidental triggers while scrolling up/down
         if (Math.abs(distanceX) > Math.abs(distanceY)) {
-            // Do not switch modes if a chat is open on a mobile device
-            if (window.innerWidth < 768 && activeConversation) return;
+            if (window.innerWidth < 768 && activeConvRef.current) return;
 
             const modes = ['chat', 'users', 'groups', 'profile'];
-            const currentIndex = modes.indexOf(mode);
+            const currentIndex = modes.indexOf(modeRef.current);
 
             if (isLeftSwipe && currentIndex < modes.length - 1) {
-                setMode(modes[currentIndex + 1]);
+                setModeRef.current(modes[currentIndex + 1]);
             }
             if (isRightSwipe && currentIndex > 0) {
-                setMode(modes[currentIndex - 1]);
+                setModeRef.current(modes[currentIndex - 1]);
             }
         }
-    };
-    // -------------------
+    }, []);
 
-    const handleSendMessage = (text) => {
-        if (!activeConversation) return;
-        sendMessage({ conversationId: activeConversation, text });
-    };
-
-    const handleTyping = (isTypingState) => {
-        if (!activeConversation) return;
-        sendTyping(activeConversation, isTypingState);
-    };
-
-    const isTyping = selectedUser && typingUsers.some(id => String(id) === String(selectedUser.id || selectedUser._id));
     const isChatActive = !!activeConversation;
 
     // Mobile override: clear chat when switching tabs
@@ -109,15 +97,18 @@ export default function Layout() {
         <div 
             className="h-[100dvh] w-full flex flex-col-reverse md:flex-row overflow-hidden bg-background text-foreground" 
             data-testid="app-container"
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
         >
             <SocketManager />
             <NavigationRail />
 
             <div className="flex-1 flex overflow-hidden w-full relative">
-                <div className={`w-full md:w-[320px] lg:w-[380px] shrink-0 border-r border-border h-full flex flex-col transition-transform ${isChatActive ? 'hidden md:flex' : 'flex'}`}>
+                {/* PERF: Touch handlers moved to sidebar div only (not root) to avoid firing on every touch */}
+                <div 
+                    className={`w-full md:w-[320px] lg:w-[380px] shrink-0 border-r border-border h-full flex flex-col transition-transform ${isChatActive ? 'hidden md:flex' : 'flex'}`}
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                >
                     {(mode === 'chat' || mode === 'groups') && <Sidebar />}
                     {mode === 'users' && <FindUsers selectedUserId={selectedUser?.id || selectedUser?._id} onSelectUser={startOrSelectConversation} />}
                     {mode === 'profile' && <Profile />}
@@ -127,10 +118,6 @@ export default function Layout() {
                     <ChatWindow
                         conversation={activeConversation ? { id: activeConversation } : null}
                         user={selectedUser}
-                        messages={messages}
-                        onSendMessage={handleSendMessage}
-                        isTyping={isTyping}
-                        onTyping={handleTyping}
                         onBack={() => window.history.back()} 
                     />
                 </div>

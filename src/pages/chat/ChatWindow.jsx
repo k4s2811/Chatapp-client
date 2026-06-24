@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -13,16 +13,16 @@ import { useConversationStore } from '../../store/useConversationStore';
 export default function ChatWindow({
     conversation,
     user,
-    messages = [],
-    onSendMessage,
-    isTyping,
-    onTyping,
-    onBack // Prop for mobile navigation
+    onBack
 }) {
-    // 2. Select states directly from Zustand stores
+    // PERF: Read all chat state directly from stores instead of receiving from Layout
     const currentUser = useAuthStore(state => state.user);
     const onlineUsers = useSocketStore(state => state.onlineUsers);
     const checkUserOnline = useSocketStore(state => state.checkUserOnline);
+    const messages = useChatStore(state => state.messages);
+    const typingUsers = useChatStore(state => state.typingUsers);
+    const sendMessage = useChatStore(state => state.sendMessage);
+    const sendTyping = useChatStore(state => state.sendTyping);
     const loadMoreMessages = useChatStore(state => state.loadMoreMessages);
     const hasMore = useChatStore(state => state.hasMore);
     const isFetchingMore = useChatStore(state => state.isFetchingMore);
@@ -49,6 +49,18 @@ export default function ChatWindow({
     }, [activeConvId]);
 
     const currentUserId = String(currentUser?.id || currentUser?._id);
+
+    const isTyping = user && typingUsers.some(id => String(id) === String(user.id || user._id));
+
+    const handleSendMessage = useCallback((text) => {
+        if (!activeConvId) return;
+        sendMessage({ conversationId: activeConvId, text });
+    }, [activeConvId, sendMessage]);
+
+    const handleTyping = useCallback((isTypingState) => {
+        if (!activeConvId) return;
+        sendTyping(activeConvId, isTypingState);
+    }, [activeConvId, sendTyping]);
 
     // Announce new messages from the other user via aria-live
     useEffect(() => {
@@ -93,8 +105,6 @@ export default function ChatWindow({
             <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRegionRef} />
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
-            {/* [Virtuoso] Pass raw messages array to MessageList instead of pre-rendered React elements */}
-            {/* MessageList uses react-virtuoso internally to virtualize rendering */}
             <MessageList 
                 messages={messages}
                 currentUserId={currentUserId}
@@ -110,7 +120,7 @@ export default function ChatWindow({
 
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">
                 <div className="max-w-5xl mx-auto w-full">
-                    <MessageInput key={activeConvId || 'default'} onSend={onSendMessage} onTyping={onTyping} />
+                    <MessageInput key={activeConvId || 'default'} onSend={handleSendMessage} onTyping={handleTyping} />
                 </div>
             </footer>
         </div>

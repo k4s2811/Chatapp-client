@@ -13,7 +13,6 @@ const MessageBubble = ({
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
 
   const messageText = message?.content?.text || message?.text || "";
-  const messageDate = message?.createdAt || new Date();
   const isDeleted = message?.isDeleted;
 
   const parsedContent = useMemo(() => {
@@ -41,13 +40,14 @@ const MessageBubble = ({
   }, [messageText]);
 
   const formattedTime = useMemo(() => {
-    if (!messageDate) return '';
+    const d = message.createdAt || new Date();
+    if (!d) return '';
     try {
-      return formatDistanceToNow(new Date(messageDate), { addSuffix: true });
+      return formatDistanceToNow(new Date(d), { addSuffix: true });
     } catch {
       return '';
     }
-  }, [messageDate]);
+  }, [message.createdAt]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -87,10 +87,8 @@ const MessageBubble = ({
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+      {/* PERF: Removed framer-motion entry animation — caused layout/animation overhead on every visible message */}
+      <div
         className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
         data-testid={`message-bubble-${message._id}`}
       >
@@ -149,7 +147,7 @@ const MessageBubble = ({
             </AnimatePresence>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       <AnimatePresence>
         {contextMenu.show && !isDeleted && (

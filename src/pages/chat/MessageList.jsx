@@ -1,4 +1,4 @@
-import { useCallback, useRef, memo } from 'react';
+import { useCallback, useRef, useEffect, memo } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -7,8 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TypingIndicator from './TypingIndicator';
 import MessageBubble from './MessageBubble';
 
-// [Virtuoso] Replaced manual scroll container with react-virtuoso for virtualized rendering
-// Only visible messages are rendered, drastically reducing DOM nodes and TBT
 const MessageList = ({
     messages,
     currentUserId,
@@ -23,15 +21,22 @@ const MessageList = ({
 }) => {
     const virtuosoRef = useRef(null);
 
-    // [Virtuoso] Renders only visible MessageBubble components; status computed per-item
+    // PERF: Use refs for itemContent deps so the callback stays stable (empty deps)
+    const currentUserIdRef = useRef(currentUserId);
+    const otherUserLastReadIdRef = useRef(otherUserLastReadId);
+    const deleteMessageRef = useRef(deleteMessage);
+    useEffect(() => { currentUserIdRef.current = currentUserId; });
+    useEffect(() => { otherUserLastReadIdRef.current = otherUserLastReadId; });
+    useEffect(() => { deleteMessageRef.current = deleteMessage; });
+
     const itemContent = useCallback((index, message) => {
-        const isMyMessage = String(message.senderId) === currentUserId || message.sending;
+        const isMyMessage = String(message.senderId) === currentUserIdRef.current || message.sending;
 
         let messageStatus = 'delivered';
         if (isMyMessage) {
             if (!message._id) {
                 messageStatus = 'sending';
-            } else if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
+            } else if (otherUserLastReadIdRef.current && String(message._id) <= String(otherUserLastReadIdRef.current)) {
                 messageStatus = 'read';
             }
         }
@@ -43,14 +48,21 @@ const MessageList = ({
                         message={message}
                         isOwn={isMyMessage}
                         status={messageStatus}
-                        onDelete={() => message._id && deleteMessage(message._id)}
+                        onDelete={message._id ? () => deleteMessageRef.current(message._id) : undefined}
                     />
                 </div>
             </div>
         );
-    }, [currentUserId, otherUserLastReadId, deleteMessage]);
+    }, []);
 
-    // [Virtuoso] Header rendered above scrollable area when loading older messages
+    // PERF: Refs for startReached deps to keep it stable
+    const hasMoreRef = useRef(hasMore);
+    const isFetchingMoreRef = useRef(isFetchingMore);
+    const loadMoreRef = useRef(loadMoreMessages);
+    useEffect(() => { hasMoreRef.current = hasMore; });
+    useEffect(() => { isFetchingMoreRef.current = isFetchingMore; });
+    useEffect(() => { loadMoreRef.current = loadMoreMessages; });
+
     const Header = useCallback(() => {
         if (!isFetchingMore) return null;
         return (
@@ -60,7 +72,6 @@ const MessageList = ({
         );
     }, [isFetchingMore]);
 
-    // [Virtuoso] Footer rendered below the last message for typing indicator
     const Footer = useCallback(() => {
         if (!isTyping) return <div className="h-4" />;
         return (
@@ -72,12 +83,14 @@ const MessageList = ({
         );
     }, [isTyping]);
 
-    // [Virtuoso] Scroll-to-bottom uses Virtuoso's scrollToIndex for precision
+    // PERF: Use ref for messages.length so scrollToBottom stays stable
+    const messagesLenRef = useRef(messages.length);
+    useEffect(() => { messagesLenRef.current = messages.length; });
     const scrollToBottom = useCallback(() => {
-        if (virtuosoRef.current && messages.length > 0) {
-            virtuosoRef.current.scrollToIndex({ index: messages.length - 1, behavior: 'smooth' });
+        if (virtuosoRef.current && messagesLenRef.current > 0) {
+            virtuosoRef.current.scrollToIndex({ index: messagesLenRef.current - 1, behavior: 'smooth' });
         }
-    }, [messages.length]);
+    }, []);
 
     return (
         <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -86,15 +99,14 @@ const MessageList = ({
                 style={{ backgroundImage: `var(--chat-pattern)`, backgroundRepeat: 'repeat', backgroundSize: '450px' }}
             />
 
-            {/* [Virtuoso] Virtualized message list — only renders ~10-15 visible DOM nodes regardless of total messages */}
             <Virtuoso
                 ref={virtuosoRef}
                 className="z-10 relative"
                 data={messages}
                 itemContent={itemContent}
                 startReached={() => {
-                    if (hasMore && !isFetchingMore) {
-                        loadMoreMessages();
+                    if (hasMoreRef.current && !isFetchingMoreRef.current) {
+                        loadMoreRef.current();
                     }
                 }}
                 followOutput={'auto'}

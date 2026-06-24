@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useRef, useEffect, memo, lazy, Suspense } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
-import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { useThemeStore } from '../../store/useThemeStore';
+
+// PERF: Lazy load emoji-picker-react (~100KB) so it's not in the main bundle
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 const MessageInput = ({ onSend, disabled, onTyping }) => {
   const [message, setMessage] = useState('');
@@ -153,15 +155,18 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
                 onMouseLeave={handleEmojiMouseLeave}
                 className="absolute bottom-12 right-0 mb-2 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200 shadow-2xl"
               >
-                <EmojiPicker
-                  onEmojiClick={handleEmojiClick}
-                  theme={isDark ? Theme.DARK : Theme.LIGHT}
-                  lazyLoadEmojis={true}
-                  autoFocusSearch={false}
-                  searchPlaceHolder="Search emojis..."
-                  width={300}
-                  height={400}
-                />
+                {/* PERF: Wrapped in Suspense since EmojiPicker is lazy-loaded */}
+                <Suspense fallback={<div className="w-[300px] h-[400px]" />}>
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    theme={isDark ? 'dark' : 'light'}
+                    lazyLoadEmojis={true}
+                    autoFocusSearch={false}
+                    searchPlaceHolder="Search emojis..."
+                    width={300}
+                    height={400}
+                  />
+                </Suspense>
               </div>
             )}
 
