@@ -148,7 +148,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
                     ${isSelected ? 'bg-sidebar-accent border-l-4 border-l-primary pl-2' : 'border-l-4 border-l-transparent'}`}
                 >
                   <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage src={user.avatar_url || undefined} alt={user.email || 'User'} />
+                    <AvatarImage src={user.avatar_url || undefined} alt={user.email || 'User'} loading="lazy" />
                     <AvatarFallback className="bg-primary/10 text-primary font-medium uppercase">
                       {user.email ? user.email[0] : '?'}
                     </AvatarFallback>

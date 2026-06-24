@@ -28,7 +28,7 @@ const ConversationItem = memo(({ chat, isSelected, isTyping, onClick }) => {
     >
       <div className="relative shrink-0">
         <Avatar className="h-12 w-12">
-          <AvatarImage src={chat.avatar || undefined} alt={chat.displayName} />
+          <AvatarImage src={chat.avatar || undefined} alt={chat.displayName} loading="lazy" />
           <AvatarFallback className="bg-primary/10 text-primary font-medium uppercase">
             {chat.displayName[0]}
           </AvatarFallback>

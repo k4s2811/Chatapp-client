@@ -127,7 +127,7 @@ export default function Profile() {
       <div className="flex flex-col items-center py-6 px-4">
         <div className="relative group cursor-pointer">
           <Avatar className="h-28 w-28 border-2 border-primary/20 shadow-xl">
-            <AvatarImage src={user?.avatar} alt={user?.name} className="object-cover" />
+            <AvatarImage src={user?.avatar} alt={user?.name} className="object-cover" loading="lazy" />
             <AvatarFallback className="text-3xl bg-primary/10">{user?.name?.[0]}</AvatarFallback>
           </Avatar>
           <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full border-4 border-sidebar shadow-lg transition-transform group-hover:scale-110">

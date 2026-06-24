@@ -64,7 +64,7 @@ const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
                     {/* Clickable Avatar Container */}
                     <div className="relative cursor-pointer" onClick={handleToggle}>
                         <Avatar className="h-10 w-10 border border-border shadow-sm hover:ring-2 hover:ring-primary/50 transition-all">
-                            <AvatarImage src={user?.avatar || undefined} alt={userName} />
+                            <AvatarImage src={user?.avatar || undefined} alt={userName} loading="lazy" />
                             <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
                                 {userInitial}
                             </AvatarFallback>
@@ -106,7 +106,7 @@ const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
                                 <div className="px-5 pb-5 relative">
                                     {/* Large Avatar */}
                                     <Avatar className="h-16 w-16 border-4 border-card shadow-sm absolute -top-8 left-4 bg-card">
-                                        <AvatarImage src={user?.avatar || undefined} alt={userName} className="object-cover" />
+                                        <AvatarImage src={user?.avatar || undefined} alt={userName} className="object-cover" loading="lazy" />
                                         <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">
                                             {userInitial}
                                         </AvatarFallback>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageBubble from './MessageBubble';
@@ -30,6 +30,8 @@ export default function ChatWindow({
     const deleteMessage = useChatStore(state => state.deleteMessage);
 
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const liveRegionRef = useRef(null);
+    const prevAnnouncedIdRef = useRef(null);
 
     const targetUserId = user?.id || user?._id ? String(user.id || user._id) : null;
     const isOnline = targetUserId ? onlineUsers.has(targetUserId) : false;
@@ -47,6 +49,20 @@ export default function ChatWindow({
     }, [activeConvId]);
 
     const currentUserId = String(currentUser?.id || currentUser?._id);
+
+    // Announce new messages from the other user via aria-live
+    useEffect(() => {
+        if (!messages.length || !user || !liveRegionRef.current) return;
+        const lastMsg = messages[messages.length - 1];
+        const msgId = lastMsg._id || lastMsg.clientMessageId;
+        if (!msgId || msgId === prevAnnouncedIdRef.current) return;
+        if (String(lastMsg.senderId) === currentUserId) return;
+
+        prevAnnouncedIdRef.current = msgId;
+        const userName = user.name || user.email?.split('@')[0] || 'Someone';
+        const text = lastMsg.text || lastMsg.content?.text || 'a message';
+        liveRegionRef.current.textContent = `New message from ${userName}: ${text}`;
+    }, [messages, user, currentUserId]);
 
     const realConversation = useConversationStore(
         state => state.conversations.find(c => String(c._id || c.id) === String(activeConvId))
@@ -99,6 +115,7 @@ export default function ChatWindow({
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden" data-testid="chat-window">
+            <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRegionRef} />
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
             <MessageList 
