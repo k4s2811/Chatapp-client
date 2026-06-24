@@ -1,98 +1,83 @@
-import { useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { useCallback, useRef, memo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+// eslint-disable-next-line no-unused-vars -- motion is used in JSX as <motion.div> (false positive with flat config)
 import { motion, AnimatePresence } from 'framer-motion';
 import TypingIndicator from './TypingIndicator';
+import MessageBubble from './MessageBubble';
 
-export default function MessageList({
-    renderedMessages,
+// [Virtuoso] Replaced manual scroll container with react-virtuoso for virtualized rendering
+// Only visible messages are rendered, drastically reducing DOM nodes and TBT
+const MessageList = ({
+    messages,
+    currentUserId,
+    otherUserLastReadId,
+    deleteMessage,
     isFetchingMore,
     isTyping,
     hasMore,
     loadMoreMessages,
     showScrollButton,
     setShowScrollButton,
-    messagesCount
-}) {
-    const messagesContainerRef = useRef(null);
-    const messagesEndRef = useRef(null);
-    const scrollState = useRef({ scrollHeight: 0, scrollTop: 0 });
-    const scrollTimeoutRef = useRef(null);
+}) => {
+    const virtuosoRef = useRef(null);
 
-    const handleScroll = useCallback((e) => {
-        if (scrollTimeoutRef.current) return;
+    // [Virtuoso] Renders only visible MessageBubble components; status computed per-item
+    const itemContent = useCallback((index, message) => {
+        const isMyMessage = String(message.senderId) === currentUserId || message.sending;
 
-        scrollTimeoutRef.current = requestAnimationFrame(() => {
-            const container = e.target;
-
-            if (container.scrollTop < 50 && hasMore && !isFetchingMore) {
-                scrollState.current = {
-                    scrollHeight: container.scrollHeight,
-                    scrollTop: container.scrollTop
-                };
-                loadMoreMessages();
-            }
-
-            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-            setShowScrollButton(distanceFromBottom > 250);
-
-            scrollTimeoutRef.current = null;
-        });
-    }, [hasMore, isFetchingMore, loadMoreMessages, setShowScrollButton]);
-
-    const scrollToBottom = useCallback(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, []);
-
-    // Clean up animation frames on unmount
-    useEffect(() => {
-        return () => {
-            if (scrollTimeoutRef.current) {
-                cancelAnimationFrame(scrollTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    // Keep scroll anchored when older historical messages load
-    useLayoutEffect(() => {
-        const container = messagesContainerRef.current;
-        if (container && scrollState.current.scrollHeight > 0 && !isFetchingMore) {
-            const addedHeight = container.scrollHeight - scrollState.current.scrollHeight;
-            container.scrollTop = scrollState.current.scrollTop + addedHeight;
-            scrollState.current = { scrollHeight: 0, scrollTop: 0 };
-        }
-    }, [messagesCount, isFetchingMore]);
-
-    // Handle initial scrolling auto/smooth logic
-    const lastMsgCountRef = useRef(messagesCount);
-    useEffect(() => {
-        const container = messagesContainerRef.current;
-        if (!container || messagesCount === 0) return;
-
-        const isNewIncoming = messagesCount > lastMsgCountRef.current;
-        lastMsgCountRef.current = messagesCount;
-
-        if (isNewIncoming) {
-            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-            // Smoothly scroll to bottom if user is close to the bottom
-            if (distanceFromBottom < 350) {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }
-        } else {
-            // Initial mount scroll
-            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-        }
-    }, [messagesCount]);
-
-    // Snap to bottom when recipient starts typing
-    useEffect(() => {
-        if (isTyping) {
-            const container = messagesContainerRef.current;
-            if (container && container.scrollHeight - container.scrollTop - container.clientHeight < 200) {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        let messageStatus = 'delivered';
+        if (isMyMessage) {
+            if (!message._id) {
+                messageStatus = 'sending';
+            } else if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
+                messageStatus = 'read';
             }
         }
+
+        return (
+            <div className="px-4 sm:px-10 md:px-20 lg:px-32">
+                <div className="max-w-5xl mx-auto">
+                    <MessageBubble
+                        message={message}
+                        isOwn={isMyMessage}
+                        status={messageStatus}
+                        onDelete={() => message._id && deleteMessage(message._id)}
+                    />
+                </div>
+            </div>
+        );
+    }, [currentUserId, otherUserLastReadId, deleteMessage]);
+
+    // [Virtuoso] Header rendered above scrollable area when loading older messages
+    const Header = useCallback(() => {
+        if (!isFetchingMore) return null;
+        return (
+            <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-50" />
+            </div>
+        );
+    }, [isFetchingMore]);
+
+    // [Virtuoso] Footer rendered below the last message for typing indicator
+    const Footer = useCallback(() => {
+        if (!isTyping) return <div className="h-4" />;
+        return (
+            <div className="flex justify-start mb-4 px-4 sm:px-10 md:px-20 lg:px-32">
+                <div className="max-w-5xl mx-auto w-full">
+                    <TypingIndicator />
+                </div>
+            </div>
+        );
     }, [isTyping]);
+
+    // [Virtuoso] Scroll-to-bottom uses Virtuoso's scrollToIndex for precision
+    const scrollToBottom = useCallback(() => {
+        if (virtuosoRef.current && messages.length > 0) {
+            virtuosoRef.current.scrollToIndex({ index: messages.length - 1, behavior: 'smooth' });
+        }
+    }, [messages.length]);
 
     return (
         <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -101,29 +86,22 @@ export default function MessageList({
                 style={{ backgroundImage: `var(--chat-pattern)`, backgroundRepeat: 'repeat', backgroundSize: '450px' }}
             />
 
-            <div
-                ref={messagesContainerRef}
-                onScroll={handleScroll}
-                className="flex-1 overflow-y-auto px-4 sm:px-10 md:px-20 lg:px-32 py-8 scrollbar-thin scrollbar-thumb-border z-10 relative"
-                style={{ overflowAnchor: 'none' }}
-            >
-                <div className="flex flex-col space-y-3 max-w-5xl mx-auto w-full">
-                    {isFetchingMore && (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-50" />
-                        </div>
-                    )}
-
-                    {renderedMessages}
-
-                    {isTyping && (
-                        <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                            <TypingIndicator />
-                        </div>
-                    )}
-                    <div ref={messagesEndRef} className="h-4" />
-                </div>
-            </div>
+            {/* [Virtuoso] Virtualized message list — only renders ~10-15 visible DOM nodes regardless of total messages */}
+            <Virtuoso
+                ref={virtuosoRef}
+                className="z-10 relative"
+                data={messages}
+                itemContent={itemContent}
+                startReached={() => {
+                    if (hasMore && !isFetchingMore) {
+                        loadMoreMessages();
+                    }
+                }}
+                followOutput={'auto'}
+                atBottomStateChange={(atBottom) => setShowScrollButton(!atBottom)}
+                components={{ Header, Footer }}
+                style={{ height: '100%' }}
+            />
 
             <AnimatePresence>
                 {showScrollButton && (
@@ -141,4 +119,6 @@ export default function MessageList({
             </AnimatePresence>
         </main>
     );
-}
+};
+
+export default memo(MessageList);

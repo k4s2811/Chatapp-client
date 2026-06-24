@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
-import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import EmptyState from './EmptyState';
 
@@ -45,6 +44,7 @@ export default function ChatWindow({
     const activeConvId = conversation?.id || conversation?._id;
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset UI scroll state on conversation switch
         setShowScrollButton(false);
     }, [activeConvId]);
 
@@ -80,31 +80,6 @@ export default function ChatWindow({
         return otherParticipant?.lastReadMessageId;
     }, [realConversation?.participants, conversation?.participants, currentUserId]);
 
-    const renderedMessages = useMemo(() => {
-        return messages.map((message) => {
-            const isMyMessage = String(message.senderId) === currentUserId || message.sending;
-
-            let messageStatus = 'delivered';
-            if (isMyMessage) {
-                if (!message._id) {
-                    messageStatus = 'sending';
-                } else if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) {
-                    messageStatus = 'read';
-                }
-            }
-
-            return (
-                <MessageBubble
-                    key={message._id || message.clientMessageId}
-                    message={message}
-                    isOwn={isMyMessage}
-                    status={messageStatus}
-                    onDelete={() => message._id && deleteMessage(message._id)}
-                />
-            );
-        });
-    }, [messages, currentUserId, otherUserLastReadId, deleteMessage]);
-
     if (!conversation || !user) {
         return (
             <div className="flex-1 h-full bg-background flex items-center justify-center">
@@ -118,15 +93,19 @@ export default function ChatWindow({
             <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRegionRef} />
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
+            {/* [Virtuoso] Pass raw messages array to MessageList instead of pre-rendered React elements */}
+            {/* MessageList uses react-virtuoso internally to virtualize rendering */}
             <MessageList 
-                renderedMessages={renderedMessages}
+                messages={messages}
+                currentUserId={currentUserId}
+                otherUserLastReadId={otherUserLastReadId}
+                deleteMessage={deleteMessage}
                 isFetchingMore={isFetchingMore}
                 isTyping={isTyping}
                 hasMore={hasMore}
                 loadMoreMessages={loadMoreMessages}
                 showScrollButton={showScrollButton}
                 setShowScrollButton={setShowScrollButton}
-                messagesCount={messages.length}
             />
 
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">
