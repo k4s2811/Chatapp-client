@@ -3,5 +3,10 @@ services:
     build: .
     container_name: chat-client-prod
     ports:
-      - "5100:5100"
+      - "${FRONTEND_HOST_PORT}:5100"
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5100/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

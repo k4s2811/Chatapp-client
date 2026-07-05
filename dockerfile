@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy dependency files
 COPY package*.json ./
 
-# Install dependencies (Stable environment prevents Exit Code 1)
-RUN npm install --legacy-peer-deps
+# npm ci is reproducible (installs exactly what's in package-lock.json)
+RUN npm ci --legacy-peer-deps
 
 # Copy source and build
 COPY . .
@@ -16,19 +16,15 @@ RUN npm run build
 # Stage 2: Serve with Nginx (The most stable way to serve React)
 FROM nginx:alpine
 
+# Custom config lives in its own file instead of an inline echo block
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Copy the built files from Vite's 'dist' folder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create a custom config on the fly to support Port 5100 and React Routing
-RUN echo 'server { \
-    listen 5100; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
 EXPOSE 5100
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 \
+  CMD wget -qO- http://localhost:5100/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
