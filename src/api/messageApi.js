@@ -1,15 +1,12 @@
 import api from "../services/axios";
 
 export const messageApi = {
-  // SEND MESSAGE
-  sendMessage: (conversationId, payload) =>
-    api.post(`/messages/${conversationId}`, payload),
-
-  // GET MESSAGES
+  // GET MESSAGES (messages are a sub-collection of a conversation)
   getMessages: (conversationId, params = {}) =>
-    api.get(`/messages/${conversationId}`, { params }),
+    api.get(`/conversations/${conversationId}/messages`, { params }),
 
-  // DELETE MESSAGE
+  // DELETE MESSAGE (single-message op lives on the top-level resource)
   deleteMessage: (messageId) =>
     api.delete(`/messages/${messageId}`),
 };
+// Note: sending goes over the socket (send_message), not REST.

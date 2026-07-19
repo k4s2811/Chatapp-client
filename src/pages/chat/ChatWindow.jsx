@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -20,17 +20,18 @@ export default function ChatWindow({
     const onlineUsers = useSocketStore(state => state.onlineUsers);
     const checkUserOnline = useSocketStore(state => state.checkUserOnline);
     const messages = useChatStore(state => state.messages);
-    const typingUsers = useChatStore(state => state.typingUsers);
     const sendMessage = useChatStore(state => state.sendMessage);
     const sendTyping = useChatStore(state => state.sendTyping);
     const loadMoreMessages = useChatStore(state => state.loadMoreMessages);
     const hasMore = useChatStore(state => state.hasMore);
     const isFetchingMore = useChatStore(state => state.isFetchingMore);
     const deleteMessage = useChatStore(state => state.deleteMessage);
+    const firstItemIndex = useChatStore(state => state.firstItemIndex);
+    const isLoadingMessages = useChatStore(state => state.isLoadingMessages);
 
-    const [showScrollButton, setShowScrollButton] = useState(false);
     const liveRegionRef = useRef(null);
     const prevAnnouncedIdRef = useRef(null);
+    const announcedConvRef = useRef(null);
 
     const targetUserId = user?.id || user?._id ? String(user.id || user._id) : null;
     const isOnline = targetUserId ? onlineUsers.has(targetUserId) : false;
@@ -43,14 +44,12 @@ export default function ChatWindow({
 
     const activeConvId = conversation?.id || conversation?._id;
 
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset UI scroll state on conversation switch
-        setShowScrollButton(false);
-    }, [activeConvId]);
+    const currentUserId = String(currentUser?.id || currentUser?._id || '');
 
-    const currentUserId = String(currentUser?.id || currentUser?._id);
-
-    const isTyping = user && typingUsers.some(id => String(id) === String(user.id || user._id));
+    // Derive typing from the centralized per-conversation map (only re-renders
+    // when THIS conversation's typing list changes).
+    const activeTyping = useChatStore(state => state.typingByConversation[String(activeConvId)]);
+    const isTyping = !!(user && (activeTyping || []).some(id => String(id) === String(user.id || user._id)));
 
     const handleSendMessage = useCallback((text) => {
         if (!activeConvId) return;
@@ -62,19 +61,29 @@ export default function ChatWindow({
         sendTyping(activeConvId, isTypingState);
     }, [activeConvId, sendTyping]);
 
-    // Announce new messages from the other user via aria-live
+    // Announce new messages from the other user via aria-live.
     useEffect(() => {
         if (!messages.length || !user || !liveRegionRef.current) return;
         const lastMsg = messages[messages.length - 1];
         const msgId = lastMsg._id || lastMsg.clientMessageId;
-        if (!msgId || msgId === prevAnnouncedIdRef.current) return;
+        if (!msgId) return;
+
+        // On conversation switch / first load, adopt the current last message as
+        // already-seen so opening a chat doesn't announce its last message as new.
+        if (announcedConvRef.current !== activeConvId) {
+            announcedConvRef.current = activeConvId;
+            prevAnnouncedIdRef.current = msgId;
+            return;
+        }
+
+        if (msgId === prevAnnouncedIdRef.current) return;
         if (String(lastMsg.senderId) === currentUserId) return;
 
         prevAnnouncedIdRef.current = msgId;
         const userName = user.name || user.email?.split('@')[0] || 'Someone';
         const text = lastMsg.text || lastMsg.content?.text || 'a message';
         liveRegionRef.current.textContent = `New message from ${userName}: ${text}`;
-    }, [messages, user, currentUserId]);
+    }, [messages, user, currentUserId, activeConvId]);
 
     const realConversation = useConversationStore(
         state => state.conversations.find(c => String(c._id || c.id) === String(activeConvId))
@@ -105,7 +114,7 @@ export default function ChatWindow({
             <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRegionRef} />
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
 
-            <MessageList 
+            <MessageList
                 messages={messages}
                 currentUserId={currentUserId}
                 otherUserLastReadId={otherUserLastReadId}
@@ -114,8 +123,9 @@ export default function ChatWindow({
                 isTyping={isTyping}
                 hasMore={hasMore}
                 loadMoreMessages={loadMoreMessages}
-                showScrollButton={showScrollButton}
-                setShowScrollButton={setShowScrollButton}
+                firstItemIndex={firstItemIndex}
+                isLoadingMessages={isLoadingMessages}
+                activeConvId={activeConvId}
             />
 
             <footer className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border/50 z-20 pb-safe">

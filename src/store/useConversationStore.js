@@ -3,6 +3,7 @@ import { conversationApi } from '../api/conversationApi';
 import { usersApi } from '../api/auth';
 import { useAuthStore } from './useAuthStore';
 import { useSocketStore } from './useSocketStore';
+import { useChatStore } from './useChatStore';
 
 export const useConversationStore = create((set, get) => ({
     conversations: [],
@@ -28,7 +29,7 @@ export const useConversationStore = create((set, get) => ({
                 const myParticipantRecord = conv.participants?.find(
                     p => String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === currentUserId
                 );
-                
+
                 const lastReadId = myParticipantRecord?.lastReadMessageId;
                 const lastMsgId = conv.lastMessage?.messageId;
                 const senderId = conv.lastMessage?.senderId;
@@ -38,37 +39,24 @@ export const useConversationStore = create((set, get) => ({
                     hasUnread = true;
                 }
 
-                return { ...conv, hasUnread };
-            });
-
-            // Fetch missing user details
-            const userIdsToFetch = new Set();
-            fetchedConvs.forEach(conv => {
-                conv.participants?.forEach(p => {
-                    const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
-                    if (pId !== currentUserId && typeof p.userId !== 'object') {
-                        userIdsToFetch.add(pId);
-                    }
+                // Hydrate each participant's identity from the denormalized
+                // snapshot the chat service now stores (name/avatarUrl) — no
+                // cross-service /usersByIds fetch needed. Shape the id into the
+                // { id, name, avatar_url } object the UI already expects.
+                const participants = (conv.participants || []).map(p => {
+                    if (p.userId && typeof p.userId === 'object') return p; // already hydrated (optimistic path)
+                    return {
+                        ...p,
+                        userId: {
+                            id: String(p.userId),
+                            name: p.name || null,
+                            avatar_url: p.avatarUrl || null,
+                        },
+                    };
                 });
+
+                return { ...conv, participants, hasUnread };
             });
-
-            const uniqueIds = Array.from(userIdsToFetch);
-            if (uniqueIds.length > 0) {
-                const usersRes = await usersApi.getUsersByIds(uniqueIds);
-                const usersList = usersRes.data?.data || usersRes.data || [];
-
-                const usersMap = usersList.reduce((acc, user) => {
-                    acc[String(user._id || user.id)] = user;
-                    return acc;
-                }, {});
-
-                fetchedConvs.forEach(conv => {
-                    conv.participants?.forEach(p => {
-                        const pId = String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id);
-                        if (usersMap[pId]) p.userId = usersMap[pId]; 
-                    });
-                });
-            }
 
             set({ conversations: fetchedConvs });
         } catch (err) {
@@ -92,7 +80,44 @@ export const useConversationStore = create((set, get) => ({
             created_at: targetUser.created_at || targetUser.createdAt || null,
         };
 
+        // If this DM is already the open conversation, just refresh the header —
+        // don't clear/reload.
+        const existing = get().conversations.find(c =>
+            !c.isGroup && (c.participants || []).some(p =>
+                String(p.userId?._id || p.userId?.id || p.userId || p._id || p.id) === String(formattedUser.id))
+        );
+        const existingId = existing ? String(existing._id || existing.id) : null;
+        if (existingId && String(get().activeConversation) === existingId) {
+            set({ selectedUser: formattedUser });
+            return;
+        }
+
+        // Switching: reset the message pane and show loading up front, so the new
+        // user's header never renders over the previous conversation's messages
+        // (selectedUser and activeConversation can't visibly disagree).
+        useChatStore.setState({ messages: [], isLoadingMessages: true, hasMore: true });
         set({ selectedUser: formattedUser });
+
+        // The sidebar/denormalized path only carries name + avatar, so fetch the
+        // full profile (email, bio, joined date) for the chat header — one call
+        // per chat open, best effort. Guarded so a stale response can't overwrite
+        // a newer selection.
+        usersApi.getUsersByIds([formattedUser.id]).then((res) => {
+            const full = (res.data?.data || res.data || [])[0];
+            if (!full) return;
+            set((state) => {
+                if (String(state.selectedUser?.id) !== String(formattedUser.id)) return state;
+                return {
+                    selectedUser: {
+                        ...state.selectedUser,
+                        email: full.email ?? state.selectedUser.email,
+                        bio: full.bio ?? state.selectedUser.bio,
+                        avatar: full.avatar_url || state.selectedUser.avatar,
+                        created_at: full.created_at ?? state.selectedUser.created_at,
+                    },
+                };
+            });
+        }).catch(() => {});
 
         try {
             const res = await conversationApi.createOrGetConversation(formattedUser.id);
@@ -129,6 +154,8 @@ export const useConversationStore = create((set, get) => ({
             }
         } catch (err) {
             console.error("Error routing conversation:", err);
+            // Don't leave the message pane stuck on the loading spinner.
+            useChatStore.setState({ isLoadingMessages: false });
         }
     },
 

@@ -14,18 +14,13 @@ export const authApi = {
 
     refresh: () => api.post("/user/refresh"),
 
-    verifyEmail: (token) => api.post("/user/verify-email", { token }),
-
-    forgotPassword: (email) => api.post("/user/forgot-password", { email }),
-
-    resetPassword: (data) => api.post("/user/reset-password", data),
-
     changePassword: (data) => api.post("/user/changepassword", data),
 };
 
 export const usersApi = {
 
-    getAllUsers: (page = 1, search = '') => api.get(`/user/allusers?page=${page}&limit=10&search=${encodeURIComponent(search)}`),
+    getAllUsers: (page = 1, search = '', config = {}) =>
+        api.get('/user/allusers', { params: { page, limit: 10, search }, ...config }),
 
     getUsersByIds: (ids) => {
         const idsString = Array.isArray(ids) ? ids.join(',') : ids;

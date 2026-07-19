@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useSocketStore } from '../store/useSocketStore';
 import { useConversationStore } from '../store/useConversationStore';
 import { useChatStore } from '../store/useChatStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { authApi } from '../api/auth';
 
 export default function SocketManager() {
     const socket = useSocketStore(state => state.socket);
@@ -24,10 +26,27 @@ export default function SocketManager() {
 
         const onNewMessage = (msg) => { handleChatNewMsg(msg); handleConvNewMsg(msg); };
 
+        // The server drops the socket when the access token expires or the
+        // session is revoked. Try a one-shot refresh + reconnect; if that fails
+        // (refresh token dead / revoked), the session is truly over — sign out.
+        const onAuthError = async () => {
+            try {
+                const res = await authApi.refresh();
+                const newToken = res.data?.data?.accessToken;
+                if (!newToken) throw new Error('no token');
+                localStorage.setItem('accessToken', newToken);
+                socket.connect(); // auth callback re-reads the fresh token
+            } catch {
+                useSocketStore.getState().disconnect();
+                useAuthStore.getState().signout();
+            }
+        };
+
         socket.on("new_message", onNewMessage);
         socket.on("messages_read", handleSocketMessagesRead);
         socket.on("typing", handleSocketTyping);
         socket.on("message_deleted", handleSocketMessageDeleted);
+        socket.on("auth_error", onAuthError);
         socket.on("room_error", (err) => console.error("[Socket] Room error:", err.message));
         socket.on("connect_error", (err) => console.error("[Socket] Connection error:", err.message));
 
@@ -36,6 +55,7 @@ export default function SocketManager() {
             socket.off("messages_read", handleSocketMessagesRead);
             socket.off("typing", handleSocketTyping);
             socket.off("message_deleted", handleSocketMessageDeleted);
+            socket.off("auth_error", onAuthError);
             socket.off("room_error");
             socket.off("connect_error");
         };
@@ -74,11 +94,11 @@ export default function SocketManager() {
 
         joinAllRooms();
 
-        // PERF: Subscribe with selector so callback only fires when conversations array changes
-        const unsub = useConversationStore.subscribe(
-            (state) => state.conversations,
-            joinAllRooms
-        );
+        // Re-join whenever the store changes (e.g. a new conversation appears).
+        // joinAllRooms is idempotent — joinedRoomsRef skips rooms already joined.
+        // (Plain subscribe: the selector form needs the subscribeWithSelector
+        // middleware, which this store doesn't use.)
+        const unsub = useConversationStore.subscribe(joinAllRooms);
 
         return () => unsub();
     }, [socket, connected]);

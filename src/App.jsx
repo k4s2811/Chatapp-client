@@ -15,13 +15,20 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
-    console.log("token is", token)
     if (token) {
       localStorage.setItem('accessToken', token);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
     restoreSession();
   }, [restoreSession]);
+
+  // axios dispatches 'user:signout' when the refresh token is dead; react by
+  // clearing session state and redirecting (otherwise the app hangs on a stale UI).
+  useEffect(() => {
+    const onSignout = () => useAuthStore.getState().signout();
+    window.addEventListener('user:signout', onSignout);
+    return () => window.removeEventListener('user:signout', onSignout);
+  }, []);
 
   if (loading) {
     return (

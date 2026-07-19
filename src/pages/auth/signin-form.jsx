@@ -39,8 +39,9 @@ export function SigninForm({ onSwitchToSignup }) {
     };
 
     const handleGoogleLogin = () => {
-        console.log("google button clicked")
-        window.location.href = 'http://localhost:3001/chat/user/google';
+        // Relative path → routed to the user service via the dev proxy / prod
+        // reverse proxy (same as the other /user/* calls). Avoids a hardcoded host.
+        window.location.href = '/user/google';
     };
 
     return (
@@ -92,8 +93,8 @@ export function SigninForm({ onSwitchToSignup }) {
                     </motion.div>
                 )}
 
-                {/* remember me and forgot password */}
-                <div className="flex items-center justify-between">
+                {/* remember me */}
+                <div className="flex items-center">
                     <label htmlFor="remember" className="flex cursor-pointer items-center gap-2 text-sm">
                         <input
                             id="remember"
@@ -104,12 +105,6 @@ export function SigninForm({ onSwitchToSignup }) {
                         />
                         <span className="text-muted-foreground select-none">Remember me</span>
                     </label>
-                    <button
-                        type="button"
-                        className="text-sm text-primary hover:underline"
-                    >
-                        Forgot password?
-                    </button>
                 </div>
 
                 {/* signin button */}

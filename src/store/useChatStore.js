@@ -6,27 +6,42 @@ import { useConversationStore } from './useConversationStore';
 
 const MESSAGES_PER_PAGE = 20;
 
+// Virtuoso's firstItemIndex must stay positive as we prepend older messages
+// (it decreases by the prepended count). Start from a large base so it can't
+// hit zero / go negative — which would break scroll anchoring on pagination.
+const START_INDEX = 1_000_000;
+
+// Centralized typing state: auto-clear a "typing" flag if the matching "stopped"
+// event never arrives. Keyed by `${conversationId}:${userId}`.
+const TYPING_TIMEOUT_MS = 5000;
+const typingTimers = {};
+
 export const useChatStore = create((set, get) => ({
     messages: [],
-    typingUsers: [],
+    // Single source of truth for typing: { [conversationId]: string[] of userIds }.
+    typingByConversation: {},
     isLoadingMessages: false,
     isFetchingMore: false,
     hasMore: true,
+    firstItemIndex: START_INDEX,
 
-    clearMessages: () => set({ messages: [], typingUsers: [], hasMore: true }),
+    clearMessages: () => set({ messages: [], hasMore: true, firstItemIndex: START_INDEX }),
 
     fetchHistory: async (conversationId) => {
         if (!conversationId) return;
 
-        set({ isLoadingMessages: true, messages: [], typingUsers: [], hasMore: true });
+        set({ isLoadingMessages: true, messages: [], hasMore: true });
 
         try {
             const res = await messageApi.getMessages(conversationId, { limit: MESSAGES_PER_PAGE });
             const fetchedMessages = res.data?.data || res.data || [];
+            // Prefer the server's cursor signal; fall back to length heuristic.
+            const hasMore = res.data?.pagination?.hasMore ?? (fetchedMessages.length >= MESSAGES_PER_PAGE);
 
             set({
                 messages: fetchedMessages,
-                hasMore: fetchedMessages.length >= MESSAGES_PER_PAGE
+                hasMore,
+                firstItemIndex: START_INDEX
             });
 
             const currentUserId = String(useAuthStore.getState().user?.id || '');
@@ -61,10 +76,12 @@ export const useChatStore = create((set, get) => ({
             });
 
             const olderMessages = res.data?.data || res.data || [];
+            const hasMore = res.data?.pagination?.hasMore ?? (olderMessages.length >= MESSAGES_PER_PAGE);
 
             set((state) => ({
                 messages: [...olderMessages, ...state.messages],
-                hasMore: olderMessages.length >= MESSAGES_PER_PAGE
+                hasMore,
+                firstItemIndex: state.firstItemIndex - olderMessages.length
             }));
         } catch (error) {
             console.error("Failed to fetch older messages:", error);
@@ -156,11 +173,31 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
-    handleSocketTyping: ({ userId, isTyping }) => {
-        set((state) => {
-            if (isTyping) return { typingUsers: state.typingUsers.includes(userId) ? state.typingUsers : [...state.typingUsers, userId] };
-            return { typingUsers: state.typingUsers.filter((id) => id !== userId) };
+    // Single typing handler for the whole app — records who is typing in which
+    // conversation. ChatWindow and Sidebar both derive from typingByConversation.
+    handleSocketTyping: ({ userId, conversationId, isTyping }) => {
+        const cid = String(conversationId);
+        const uid = String(userId);
+        const key = `${cid}:${uid}`;
+
+        const setTyping = (typing) => set((state) => {
+            const current = state.typingByConversation[cid] || [];
+            const has = current.includes(uid);
+            if (typing === has) return state; // no change
+            const next = typing ? [...current, uid] : current.filter((id) => id !== uid);
+            return { typingByConversation: { ...state.typingByConversation, [cid]: next } };
         });
+
+        if (typingTimers[key]) { clearTimeout(typingTimers[key]); delete typingTimers[key]; }
+
+        setTyping(!!isTyping);
+
+        if (isTyping) {
+            typingTimers[key] = setTimeout(() => {
+                delete typingTimers[key];
+                setTyping(false);
+            }, TYPING_TIMEOUT_MS);
+        }
     },
 
     handleSocketMessageDeleted: ({ messageId, conversationId }) => {

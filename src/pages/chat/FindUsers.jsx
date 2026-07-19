@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Loader2, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
-import { usersApi } from '../../api/auth'; 
+import { usersApi } from '../../api/auth';
+
+const PAGE_SIZE = 10;
 
 const UserSkeleton = () => (
   <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
@@ -15,7 +17,6 @@ const UserSkeleton = () => (
 );
 
 const FindUsers = ({ selectedUserId, onSelectUser }) => {
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [users, setUsers] = useState([]);
@@ -25,53 +26,69 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  const scrollRef = useRef(null);
+  const isFetchingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+
+  useEffect(() => { isFetchingMoreRef.current = isFetchingMore; }, [isFetchingMore]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm !== debouncedSearch) {
         setPage(1);
         setDebouncedSearch(searchTerm);
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
       }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm, debouncedSearch]);
 
-  const fetchUsers = useCallback(async (pageNum, searchStr) => {
+  const fetchUsers = useCallback(async (pageNum, searchStr, signal) => {
     if (pageNum === 1) setIsLoading(true);
     else setIsFetchingMore(true);
     setError(null);
 
     try {
-      const res = await usersApi.getAllUsers(pageNum, searchStr);
+      const res = await usersApi.getAllUsers(pageNum, searchStr, { signal });
       const newUsers = res?.data?.data || res?.data || [];
       const pagination = res?.data?.pagination;
+
+      if (signal.aborted) return;
 
       setUsers(prev => pageNum === 1 ? newUsers : [...prev, ...newUsers]);
 
       if (pagination) {
         setHasMore(pageNum < pagination.totalPages);
       } else {
-        setHasMore(newUsers.length > 0);
+        setHasMore(newUsers.length >= PAGE_SIZE);
       }
     } catch (err) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
       setError(err?.response?.data?.message || 'Failed to fetch users');
     } finally {
-      setIsLoading(false);
-      setIsFetchingMore(false);
+      if (!signal.aborted) {
+        setIsLoading(false);
+        setIsFetchingMore(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchUsers(page, debouncedSearch);
+    const controller = new AbortController();
+    fetchUsers(page, debouncedSearch, controller.signal);
+    return () => controller.abort();
   }, [page, debouncedSearch, fetchUsers]);
 
-  const handleScroll = (e) => {
+  const handleScroll = useCallback((e) => {
     const { scrollTop, clientHeight, scrollHeight } = e.target;
-    if (scrollHeight - scrollTop <= clientHeight + 50) {
-      if (!isLoading && !isFetchingMore && hasMore) {
-        setPage(prev => prev + 1);
-      }
+    if (scrollHeight - scrollTop <= clientHeight + 50 && !isFetchingMoreRef.current && hasMoreRef.current) {
+      // Lock synchronously — the state→ref sync via useEffect lags a render, so
+      // a fast second scroll event could otherwise skip a page.
+      isFetchingMoreRef.current = true;
+      setPage(prev => prev + 1);
     }
-  };
+  }, []);
 
   const clearSearch = () => {
     setSearchTerm('');
@@ -121,6 +138,7 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
 
       {/* Users List */}
       <div
+        ref={scrollRef}
         className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border pb-safe"
         onScroll={handleScroll}
         data-testid="users-list"
@@ -148,15 +166,15 @@ const FindUsers = ({ selectedUserId, onSelectUser }) => {
                     ${isSelected ? 'bg-sidebar-accent border-l-4 border-l-primary pl-2' : 'border-l-4 border-l-transparent'}`}
                 >
                   <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage src={user.avatar_url || undefined} alt={user.email || 'User'} loading="lazy" />
+                    <AvatarImage src={user.avatar_url || undefined} alt={user.name || user.email || 'User'} loading="lazy" />
                     <AvatarFallback className="bg-primary/10 text-primary font-medium uppercase">
-                      {user.email ? user.email[0] : '?'}
+                      {(user.name || user.email)?.[0] || '?'}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium truncate text-foreground">
-                      {user.email?.split('@')[0] || 'Unknown'}
+                      {user.name || user.email?.split('@')[0] || 'Unknown'}
                     </h3>
                     <p className="text-sm text-muted-foreground truncate">{user.bio || 'Available'}</p>
                   </div>

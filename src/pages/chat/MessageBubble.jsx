@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, CheckCheck, Copy, Clock, Trash2, Ban } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,7 +10,9 @@ const MessageBubble = ({
   onDelete
 }) => {
   const [isCopied, setIsCopied] = useState(false);
-  const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
+  // selectedText: text highlighted inside this bubble when the menu opened.
+  const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, selectedText: '' });
+  const bubbleRef = useRef(null);
 
   const messageText = message?.content?.text || message?.text || "";
   const isDeleted = message?.isDeleted;
@@ -49,26 +51,38 @@ const MessageBubble = ({
     }
   }, [message.createdAt]);
 
+  // Read any text currently selected inside THIS bubble.
+  const getSelectionInBubble = () => {
+    const sel = window.getSelection();
+    if (!sel || !sel.toString().trim() || sel.rangeCount === 0) return '';
+    const range = sel.getRangeAt(0);
+    if (bubbleRef.current && bubbleRef.current.contains(range.commonAncestorContainer)) {
+      return sel.toString();
+    }
+    return '';
+  };
+
   const handleContextMenu = (e) => {
     e.preventDefault();
     if (isDeleted) return;
-    const menuWidth = 110;
+    // Capture the selection now — clicking a menu item later clears it.
+    const selectedText = getSelectionInBubble();
+    const menuWidth = selectedText ? 170 : 110;
     const menuHeight = 80;
     const posX = e.pageX - menuWidth;
     const safeX = posX < 20 ? 20 : posX;
     const posY = e.pageY + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 10 : e.pageY;
-    setContextMenu({ show: true, x: safeX, y: posY });
+    setContextMenu({ show: true, x: safeX, y: posY, selectedText });
   };
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(messageText);
+      // Copy just the highlighted text if there is a selection; otherwise the
+      // whole message.
+      await navigator.clipboard.writeText(contextMenu.selectedText || messageText);
       setIsCopied(true);
-      setContextMenu({ show: false, x: 0, y: 0 });
-
-      setTimeout(() => {
-        setIsCopied(false);
-      }, 1500);
+      setContextMenu({ show: false, x: 0, y: 0, selectedText: '' });
+      setTimeout(() => setIsCopied(false), 1500);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
@@ -76,11 +90,11 @@ const MessageBubble = ({
 
   const handleDelete = () => {
     if (onDelete) onDelete();
-    setContextMenu({ show: false, x: 0, y: 0 });
+    setContextMenu({ show: false, x: 0, y: 0, selectedText: '' });
   };
 
   useEffect(() => {
-    const closeMenu = () => setContextMenu({ show: false, x: 0, y: 0 });
+    const closeMenu = () => setContextMenu({ show: false, x: 0, y: 0, selectedText: '' });
     if (contextMenu.show) document.addEventListener('click', closeMenu);
     return () => document.removeEventListener('click', closeMenu);
   }, [contextMenu.show]);
@@ -92,15 +106,16 @@ const MessageBubble = ({
         className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
         data-testid={`message-bubble-${message._id}`}
       >
-        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} relative group`}>
+        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%] min-w-0 relative group`}>
           <div
+            ref={bubbleRef}
             onContextMenu={handleContextMenu}
             onDoubleClick={handleContextMenu}
             className={`${isOwn
                 ? 'bg-message-sent text-message-sent-foreground'
                 : 'bg-message-received text-message-received-foreground border border-border'
               } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
-              } shadow-sm px-4 py-2 max-w-[80%] md:max-w-[70%] break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
+              } shadow-sm px-4 py-2 max-w-full break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
               }`}
           >
             {isDeleted ? (
@@ -109,7 +124,7 @@ const MessageBubble = ({
                 <span>This message was deleted</span>
               </div>
             ) : (
-              <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer">
+              <p className="text-[16px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] cursor-pointer">
                 {parsedContent}
               </p>
             )}
@@ -156,15 +171,15 @@ const MessageBubble = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className="fixed z-50 min-w-[90px] bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1"
+            className="fixed z-50 min-w-[120px] bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <button
               onClick={handleCopy}
-              className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2 py-2 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left whitespace-nowrap"
             >
               <Copy size={16} />
-              Copy
+              {contextMenu.selectedText ? 'Copy selected text' : 'Copy'}
             </button>
 
             {isOwn && (

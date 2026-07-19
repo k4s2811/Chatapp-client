@@ -7,9 +7,10 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConversationStore } from '../../store/useConversationStore';
 import { useSocketStore } from '../../store/useSocketStore';
+import { useChatStore } from '../../store/useChatStore';
 
 
-const ConversationItem = memo(({ chat, isSelected, isTyping, onClick }) => {
+const ConversationItem = memo(({ chat, isSelected, isTyping, isOnline, onClick }) => {
   const formatTime = (dateString) => {
     if (!dateString) return '';
     try {
@@ -30,9 +31,12 @@ const ConversationItem = memo(({ chat, isSelected, isTyping, onClick }) => {
         <Avatar className="h-12 w-12">
           <AvatarImage src={chat.avatar || undefined} alt={chat.displayName} loading="lazy" />
           <AvatarFallback className="bg-primary/10 text-primary font-medium uppercase">
-            {chat.displayName[0]}
+            {chat.displayName?.[0] || '?'}
           </AvatarFallback>
         </Avatar>
+        {isOnline && (
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full" aria-label="Online" />
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -79,42 +83,21 @@ const ConversationSkeleton = () => (
 
 export default function Sidebar() {
   const currentUser = useAuthStore(state => state.user);
-  const socket = useSocketStore(state => state.socket);
+  const onlineUsers = useSocketStore(state => state.onlineUsers);
   const conversations = useConversationStore(state => state.conversations);
   const activeConversation = useConversationStore(state => state.activeConversation);
   const startOrSelectConversation = useConversationStore(state => state.startOrSelectConversation);
   const isLoading = useConversationStore(state => state.isLoading);
-
-  // 1. Pull the load function from the store
   const loadConversations = useConversationStore(state => state.loadConversations);
+  // Centralized typing state (populated by the single SocketManager listener).
+  const typingByConversation = useChatStore(state => state.typingByConversation);
 
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [typingData, setTypingData] = useState({});
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
-
-
-  // Dynamic socket listener for typing updates
-  useEffect(() => {
-    if (!socket || !currentUser) return;
-
-    const currentUserId = String(currentUser.id || currentUser._id);
-
-    const handleTyping = ({ conversationId, isTyping, userId }) => {
-      if (String(userId) === currentUserId) return;
-
-      setTypingData((prev) => ({
-        ...prev,
-        [String(conversationId)]: isTyping
-      }));
-    };
-
-    socket.on("typing", handleTyping);
-    return () => socket.off("typing", handleTyping);
-  }, [socket, currentUser]);
 
   // Clean, unified formatting & filtering logic
   const formattedConversations = useMemo(() => {
@@ -149,7 +132,11 @@ export default function Sidebar() {
           };
 
         const displayName = otherUser.name || otherUser.email?.split('@')[0] || 'Unknown User';
-        const lastMessageText = conv.lastMessage?.content || "Started a conversation";
+        const hasLast = !!conv.lastMessage?.content;
+        const isOwnLast = hasLast && String(conv.lastMessage.senderId) === currentUserId;
+        const lastMessageText = hasLast
+          ? (isOwnLast ? `You: ${conv.lastMessage.content}` : conv.lastMessage.content)
+          : "Started a conversation";
         const convIdStr = String(conv._id || conv.id);
 
         return {
@@ -170,7 +157,7 @@ export default function Sidebar() {
           item.lastMessageText.toLowerCase().includes(searchLower)
         );
       })
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      .sort((a, b) => (new Date(b.timestamp).getTime() || 0) - (new Date(a.timestamp).getTime() || 0));
   }, [conversations, currentUser, deferredSearchTerm]);
 
   return (
@@ -210,7 +197,8 @@ export default function Sidebar() {
               key={chat.id}
               chat={chat}
               isSelected={activeConversation ? String(activeConversation._id || activeConversation.id || activeConversation) === chat.id : false}
-              isTyping={!!typingData[chat.id]}
+              isTyping={(typingByConversation[chat.id] || []).length > 0}
+              isOnline={onlineUsers.has(chat.rawUser.id)}
               onClick={startOrSelectConversation}
             />
           ))

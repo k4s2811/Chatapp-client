@@ -7,6 +7,9 @@ import { useThemeStore } from '../../store/useThemeStore';
 // PERF: Lazy load emoji-picker-react (~100KB) so it's not in the main bundle
 const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
+// Must match the backend's message text limit (messageService MAX_TEXT).
+const MAX_LENGTH = 4000;
+
 const MessageInput = ({ onSend, disabled, onTyping }) => {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -25,13 +28,27 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     if (!disabled) textareaRef.current?.focus();
   }, [disabled]);
 
-  // Clean up timeouts on unmount
+  // Clean up on unmount. If we were mid-typing (e.g. user switched conversation
+  // while composing), tell the peer we stopped so their "typing…" doesn't stick.
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (emojiHoverTimeoutRef.current) clearTimeout(emojiHoverTimeoutRef.current);
+      if (isTypingRef.current && onTyping) onTyping(false);
     };
+    // onTyping is stable per mount (MessageInput is keyed by conversation id).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-grow the textarea whenever the value changes — covers typing, emoji
+  // insertion, and reset-on-send consistently (the DOM value is already current
+  // by the time this effect runs, unlike calling it inline right after setState).
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, [message]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -43,16 +60,8 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const autoResize = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  };
-
   const handleChange = (e) => {
     setMessage(e.target.value);
-    autoResize();
 
     if (onTyping && !disabled) {
       if (!isTypingRef.current) {
@@ -70,32 +79,26 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
   };
   
   const handleEmojiClick = (emojiObject) => {
-    setMessage((prev) => prev + emojiObject.emoji);
-
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      autoResize();
-    }
+    setMessage((prev) => (prev + emojiObject.emoji).slice(0, MAX_LENGTH));
+    textareaRef.current?.focus();
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (message.trim() && !disabled) {
-      onSend(message.trim());
-      setMessage('');
+    const text = message.trim();
+    if (!text || disabled) return;
 
-      if (onTyping) {
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        isTypingRef.current = false;
-        onTyping(false);
-      }
+    onSend(text);
+    setMessage('');
 
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.focus();
-      }
-      setShowEmojiPicker(false); // Close picker on send
+    if (onTyping) {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      isTypingRef.current = false;
+      onTyping(false);
     }
+
+    textareaRef.current?.focus();
+    setShowEmojiPicker(false); // Close picker on send
   };
 
   const handleKeyDown = (e) => {
@@ -142,10 +145,17 @@ const MessageInput = ({ onSend, disabled, onTyping }) => {
               placeholder="Type a message..."
               disabled={disabled}
               rows={1}
+              maxLength={MAX_LENGTH}
               aria-label="Message input"
               className="w-full resize-none overflow-y-auto bg-transparent border-none outline-none py-2.5 pr-10 pl-4 text-[16px] md:text-sm leading-tight text-foreground placeholder:text-muted-foreground/60 block min-h-[40px] scrollbar-thin"
               style={{ maxHeight: '120px' }}
             />
+
+            {message.length > MAX_LENGTH - 200 && (
+              <span className="absolute -top-5 right-3 text-[11px] font-medium text-muted-foreground tabular-nums">
+                {message.length}/{MAX_LENGTH}
+              </span>
+            )}
 
             {showEmojiPicker && (
               <div

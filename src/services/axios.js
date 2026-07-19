@@ -47,9 +47,17 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
     if (error.response.status === 401) {
+      const url = originalRequest.url || ''
+
+      // A 401 from the auth endpoints means bad credentials / no session — NOT an
+      // expired access token. Don't attempt a token refresh (which would mask the
+      // real error, e.g. "Invalid credentials", and fire a spurious signout).
+      if (url.includes('/user/signin') || url.includes('/user/signup')) {
+        return Promise.reject(error)
+      }
 
       // Refresh token invalid/expired
-      if (originalRequest.url?.includes('/user/refresh')) {
+      if (url.includes('/user/refresh')) {
         localStorage.removeItem('accessToken')
 
         delete api.defaults.headers.common.Authorization

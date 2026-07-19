@@ -52,7 +52,8 @@ export function SignupForm({ onSwitchToSignin }) {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:3001/chat/user/google';
+        // Relative path → routed via the proxy (same as the other /user/* calls).
+        window.location.href = '/user/google';
     };
 
     return (

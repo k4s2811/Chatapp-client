@@ -1,13 +1,27 @@
-import { useCallback, useRef, useEffect, memo } from 'react';
+import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-// eslint-disable-next-line no-unused-vars -- motion is used in JSX as <motion.div> (false positive with flat config)
 import { motion, AnimatePresence } from 'framer-motion';
 import TypingIndicator from './TypingIndicator';
 import MessageBubble from './MessageBubble';
 
-const MessageList = ({
+/**
+ * The virtualized message list for ONE conversation.
+ *
+ * It is keyed by conversation id (see MessageList below) so each conversation
+ * gets a fresh instance that mounts already scrolled to the newest message via
+ * `initialTopMostItemIndex`. That removes all the manual "scroll to bottom on
+ * first load / conversation switch" logic.
+ *
+ *  - New message while at bottom (sent or received) → Virtuoso `followOutput`
+ *    scrolls after measuring the item, so it lands exactly at the bottom.
+ *  - Your OWN message while scrolled up → force-scrolled by the effect below.
+ *  - Incoming message while scrolled up → left in place; the ↓ button appears.
+ *  - Scrolling to the top → `startReached` loads older history; `firstItemIndex`
+ *    keeps the scroll position anchored (no jump).
+ */
+function ConversationMessages({
     messages,
     currentUserId,
     otherUserLastReadId,
@@ -16,29 +30,25 @@ const MessageList = ({
     isTyping,
     hasMore,
     loadMoreMessages,
-    showScrollButton,
-    setShowScrollButton,
-}) => {
+    firstItemIndex,
+}) {
     const virtuosoRef = useRef(null);
+    const [atBottom, setAtBottom] = useState(true);
+    const atBottomRef = useRef(true);
+    // Virtuoso fires startReached once while settling on mount — skip that one.
+    const pagingArmedRef = useRef(false);
+    const lastMsgIdRef = useRef(null);
 
-    // PERF: Use refs for itemContent deps so the callback stays stable (empty deps)
-    const currentUserIdRef = useRef(currentUserId);
-    const otherUserLastReadIdRef = useRef(otherUserLastReadId);
-    const deleteMessageRef = useRef(deleteMessage);
-    useEffect(() => { currentUserIdRef.current = currentUserId; });
-    useEffect(() => { otherUserLastReadIdRef.current = otherUserLastReadId; });
-    useEffect(() => { deleteMessageRef.current = deleteMessage; });
+    // Depends on the values it renders, so read-receipt updates
+    // (otherUserLastReadId) actually re-run it. MessageBubble is memoized, so
+    // only bubbles whose status changed re-render.
+    const itemContent = useCallback((_index, message) => {
+        const isOwn = String(message.senderId) === String(currentUserId) || message.sending;
 
-    const itemContent = useCallback((index, message) => {
-        const isMyMessage = String(message.senderId) === currentUserIdRef.current || message.sending;
-
-        let messageStatus = 'delivered';
-        if (isMyMessage) {
-            if (!message._id) {
-                messageStatus = 'sending';
-            } else if (otherUserLastReadIdRef.current && String(message._id) <= String(otherUserLastReadIdRef.current)) {
-                messageStatus = 'read';
-            }
+        let status = 'delivered';
+        if (isOwn) {
+            if (!message._id) status = 'sending';
+            else if (otherUserLastReadId && String(message._id) <= String(otherUserLastReadId)) status = 'read';
         }
 
         return (
@@ -46,51 +56,52 @@ const MessageList = ({
                 <div className="max-w-5xl mx-auto">
                     <MessageBubble
                         message={message}
-                        isOwn={isMyMessage}
-                        status={messageStatus}
-                        onDelete={message._id ? () => deleteMessageRef.current(message._id) : undefined}
+                        isOwn={isOwn}
+                        status={status}
+                        onDelete={message._id ? () => deleteMessage(message._id) : undefined}
                     />
                 </div>
             </div>
         );
+    }, [currentUserId, otherUserLastReadId, deleteMessage]);
+
+    const Header = useCallback(() => (
+        <div className="flex justify-center py-4 min-h-[48px]">
+            {isFetchingMore && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-50" />}
+        </div>
+    ), [isFetchingMore]);
+
+    const Footer = useCallback(() => (
+        isTyping ? (
+            <div className="mb-4 px-4 sm:px-10 md:px-20 lg:px-32">
+                <div className="max-w-5xl mx-auto w-full"><TypingIndicator /></div>
+            </div>
+        ) : <div className="h-4" />
+    ), [isTyping]);
+
+    const scrollToBottom = useCallback((behavior = 'smooth') => {
+        virtuosoRef.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior });
     }, []);
 
-    // PERF: Refs for startReached deps to keep it stable
-    const hasMoreRef = useRef(hasMore);
-    const isFetchingMoreRef = useRef(isFetchingMore);
-    const loadMoreRef = useRef(loadMoreMessages);
-    useEffect(() => { hasMoreRef.current = hasMore; });
-    useEffect(() => { isFetchingMoreRef.current = isFetchingMore; });
-    useEffect(() => { loadMoreRef.current = loadMoreMessages; });
+    // Force-follow your OWN outgoing message even if you'd scrolled up. Every
+    // other case (at-bottom follows, first render) is handled by Virtuoso.
+    useEffect(() => {
+        if (!messages.length) return;
+        const last = messages[messages.length - 1];
+        const id = last._id || last.clientMessageId;
+        if (!id || id === lastMsgIdRef.current) return;
 
-    const Header = useCallback(() => {
-        if (!isFetchingMore) return null;
-        return (
-            <div className="flex justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-50" />
-            </div>
-        );
-    }, [isFetchingMore]);
+        const isFirst = lastMsgIdRef.current === null;
+        lastMsgIdRef.current = id;
 
-    const Footer = useCallback(() => {
-        if (!isTyping) return <div className="h-4" />;
-        return (
-            <div className="flex justify-start mb-4 px-4 sm:px-10 md:px-20 lg:px-32">
-                <div className="max-w-5xl mx-auto w-full">
-                    <TypingIndicator />
-                </div>
-            </div>
-        );
-    }, [isTyping]);
+        const isOwn = String(last.senderId) === String(currentUserId) || last.sending;
+        if (!isFirst && isOwn && !atBottomRef.current) scrollToBottom('smooth');
+    }, [messages, currentUserId, scrollToBottom]);
 
-    // PERF: Use ref for messages.length so scrollToBottom stays stable
-    const messagesLenRef = useRef(messages.length);
-    useEffect(() => { messagesLenRef.current = messages.length; });
-    const scrollToBottom = useCallback(() => {
-        if (virtuosoRef.current && messagesLenRef.current > 0) {
-            virtuosoRef.current.scrollToIndex({ index: messagesLenRef.current - 1, behavior: 'smooth' });
-        }
-    }, []);
+    const handleStartReached = useCallback(() => {
+        if (!pagingArmedRef.current) { pagingArmedRef.current = true; return; }
+        if (hasMore && !isFetchingMore) loadMoreMessages();
+    }, [hasMore, isFetchingMore, loadMoreMessages]);
 
     return (
         <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -102,28 +113,33 @@ const MessageList = ({
             <Virtuoso
                 ref={virtuosoRef}
                 className="z-10 relative"
-                data={messages}
-                itemContent={itemContent}
-                startReached={() => {
-                    if (hasMoreRef.current && !isFetchingMoreRef.current) {
-                        loadMoreRef.current();
-                    }
-                }}
-                followOutput={'auto'}
-                atBottomStateChange={(atBottom) => setShowScrollButton(!atBottom)}
-                components={{ Header, Footer }}
                 style={{ height: '100%' }}
+                data={messages}
+                firstItemIndex={firstItemIndex}
+                initialTopMostItemIndex={{ index: Math.max(messages.length - 1, 0), align: 'end' }}
+                atBottomThreshold={120}
+                increaseViewportBy={{ top: 400, bottom: 200 }}
+                itemContent={itemContent}
+                components={{ Header, Footer }}
+                startReached={handleStartReached}
+                followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+                atBottomStateChange={(b) => { atBottomRef.current = b; setAtBottom(b); }}
             />
 
             <AnimatePresence>
-                {showScrollButton && (
+                {!atBottom && (
                     <motion.div
                         initial={{ opacity: 0, y: 15, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 15, scale: 0.9 }}
                         className="absolute bottom-6 right-6 z-30"
                     >
-                        <Button onClick={scrollToBottom} size="icon" className="h-10 w-10 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Button
+                            onClick={() => scrollToBottom('smooth')}
+                            size="icon"
+                            aria-label="Scroll to latest"
+                            className="h-10 w-10 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
                             <ChevronDown size={22} />
                         </Button>
                     </motion.div>
@@ -131,6 +147,21 @@ const MessageList = ({
             </AnimatePresence>
         </main>
     );
+}
+
+const MessageList = ({ isLoadingMessages, activeConvId, ...rest }) => {
+    // Show a loader while history is fetching so the list never mounts empty —
+    // it mounts once (keyed by conversation) with the messages already present,
+    // which lets initialTopMostItemIndex land it at the newest message.
+    if (isLoadingMessages) {
+        return (
+            <main className="flex-1 flex items-center justify-center bg-background">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground opacity-60" />
+            </main>
+        );
+    }
+
+    return <ConversationMessages key={activeConvId} {...rest} />;
 };
 
 export default memo(MessageList);

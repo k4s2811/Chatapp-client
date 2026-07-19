@@ -41,7 +41,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
 
   // Profile Form State
-  const [profileForm, setProfileForm] = useState({ name: '', bio: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', bio: '', avatar_url: '' });
 
   // Security Form State
   const [passForm, setPassForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -53,7 +53,7 @@ export default function Profile() {
   // --- Effects ---
   useEffect(() => {
     if (user) {
-      setProfileForm({ name: user.name || '', bio: user.bio || '' });
+      setProfileForm({ name: user.name || '', bio: user.bio || '', avatar_url: user.avatar_url || '' });
     }
   }, [user]);
 
@@ -71,14 +71,32 @@ export default function Profile() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
-    setLoading(true);
 
+    // Only send fields that actually changed. Resending unchanged fields (e.g.
+    // a legacy/Google name that the backend now validates more strictly) would
+    // block an otherwise-valid bio edit. avatar_url is only sent when non-empty
+    // (an empty string fails the URL validator).
+    const payload = {};
+    const name = profileForm.name.trim();
+    const avatarUrl = profileForm.avatar_url.trim();
+    if (name && name !== (user?.name || '')) payload.name = name;
+    if (profileForm.bio !== (user?.bio || '')) payload.bio = profileForm.bio;
+    if (avatarUrl && avatarUrl !== (user?.avatar_url || '')) payload.avatar_url = avatarUrl;
+
+    if (Object.keys(payload).length === 0) {
+      setSuccess('No changes to save.');
+      setTimeout(() => setOpenSection(null), 1200);
+      return;
+    }
+
+    setLoading(true);
     try {
-      await updateProfile(profileForm);
+      await updateProfile(payload);
       setSuccess('Profile updated successfully!');
       setTimeout(() => setOpenSection(null), 1500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      const errs = err.response?.data?.errors;
+      setError(errs ? errs.map(e => e.msg).join(' · ') : err.response?.data?.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -125,15 +143,20 @@ export default function Profile() {
 
       {/* --- Avatar & Status --- */}
       <div className="flex flex-col items-center py-6 px-4">
-        <div className="relative group cursor-pointer">
+        <button
+          type="button"
+          onClick={() => setOpenSection('profile')}
+          className="relative group cursor-pointer"
+          aria-label="Edit profile picture"
+        >
           <Avatar className="h-28 w-28 border-2 border-primary/20 shadow-xl">
-            <AvatarImage src={user?.avatar} alt={user?.name} className="object-cover" loading="lazy" />
+            <AvatarImage src={user?.avatar_url || undefined} alt={user?.name} className="object-cover" loading="lazy" />
             <AvatarFallback className="text-3xl bg-primary/10">{user?.name?.[0]}</AvatarFallback>
           </Avatar>
           <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full border-4 border-sidebar shadow-lg transition-transform group-hover:scale-110">
             <Camera size={16} />
           </div>
-        </div>
+        </button>
         <h2 className="mt-4 text-xl font-bold">{user?.name || 'Anonymous'}</h2>
         <p className="text-sm text-green-500 font-medium">Online</p>
       </div>
@@ -213,6 +236,20 @@ export default function Profile() {
                                             value={profileForm.bio}
                                             onChange={setProf('bio')}
                                             className="w-full min-h-[80px] pl-10 pr-3 py-2 text-sm rounded-md border border-input bg-transparent shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                </Field>
+                                <Field>
+                                    <FieldLabel>Avatar URL</FieldLabel>
+                                    <div className="relative">
+                                        <Camera className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            type="url"
+                                            placeholder="https://example.com/avatar.png"
+                                            value={profileForm.avatar_url}
+                                            onChange={setProf('avatar_url')}
+                                            className="pl-10"
                                             disabled={loading}
                                         />
                                     </div>

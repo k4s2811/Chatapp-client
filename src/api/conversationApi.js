@@ -6,12 +6,8 @@ export const conversationApi = {
     api.post("/conversations", { targetUserId }),
 
   // GET ALL CONVERSATIONS
-  getConversations: () => 
+  getConversations: () =>
     api.get("/conversations"),
-
-  // GET SINGLE CONVERSATION
-  getConversation: (conversationId) =>
-    api.get(`/conversations/${conversationId}`),
 
   // MARK READ
   markConversationRead: (conversationId, messageId) =>
