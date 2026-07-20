@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Palette, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useThemeStore } from '../store/useThemeStore';
 import { Button } from "./ui/button";
 
@@ -35,7 +35,7 @@ export const ThemeSelector = () => {
           <>
             <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
 
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -74,14 +74,14 @@ export const ThemeSelector = () => {
                       </span>
                     </div>
                     {baseColor === t.id && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                      <m.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                         <Check size={16} strokeWidth={3} />
-                      </motion.div>
+                      </m.div>
                     )}
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           </>
         )}
       </AnimatePresence>

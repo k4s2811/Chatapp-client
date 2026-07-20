@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Group, MessageSquare, Users, Settings } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../components/ui/tooltip';
 import { useModeStore } from '../store/useModeStore';
 
@@ -24,7 +24,7 @@ const NavItem = ({ icon: Icon, label, mode, badge, active, onClick }) => (
         )}
 
         {active && (
-          <motion.div
+          <m.div
             layoutId="active-pill"
             className="absolute -top-2 md:-left-3 md:top-auto w-8 h-1 md:w-1 md:h-8 bg-primary rounded-b-full md:rounded-l-none md:rounded-r-full"
           />

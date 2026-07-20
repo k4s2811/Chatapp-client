@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -85,12 +85,12 @@ export function SigninForm({ onSwitchToSignup }) {
                     </div>
                 </Field>
                 {error && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
                         <FieldError>{error}</FieldError>
-                    </motion.div>
+                    </m.div>
                 )}
 
                 {/* remember me */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 const TypingIndicator = () => {
   return (
@@ -7,7 +7,7 @@ const TypingIndicator = () => {
     bg-message-received border border-border 
     rounded-2xl rounded-tl-sm w-fit shadow-sm">
       {[0, 1, 2].map((i) => (
-        <motion.div
+        <m.div
           key={i}
           className="w-2 h-2 bg-typing rounded-full"
           animate={{

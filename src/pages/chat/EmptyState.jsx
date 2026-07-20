@@ -1,6 +1,6 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 const EmptyState = () => {
 
@@ -11,13 +11,13 @@ const EmptyState = () => {
     >
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
       <div className="relative z-10 flex flex-col items-center gap-4 text-center px-6">
-        <motion.div
+        <m.div
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           className="p-6 rounded-full bg-primary/10 mb-2"
         >
           <MessageCircle size={48} className="text-primary" />
-        </motion.div>
+        </m.div>
         <h2
           className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground"
           style={{ fontFamily: 'Manrope, sans-serif' }}

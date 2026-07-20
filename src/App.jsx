@@ -5,6 +5,8 @@ import { useAuthStore } from './store/useAuthStore';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import MyFallbackComponent from './pages/errorPage';
 
+import MotionProvider from './lib/motion.jsx';
+
 const Layout = lazy(() => import('./pages/Layout.jsx'));
 const AuthPage = lazy(() => import('./pages/auth/authpage'));
 
@@ -40,6 +42,7 @@ export default function App() {
 
   return (
     <ErrorBoundary FallbackComponent={MyFallbackComponent}>
+      <MotionProvider>
       <BrowserRouter>
         <Suspense fallback={
           <div className="h-[100dvh] w-full flex items-center justify-center bg-background">
@@ -60,6 +63,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
+      </MotionProvider>
     </ErrorBoundary>
   );
 }

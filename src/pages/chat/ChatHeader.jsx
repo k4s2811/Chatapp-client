@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, ArrowLeft, Mail, Calendar, AlignLeft } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
     
@@ -93,7 +93,7 @@ const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
                     {/* --- THE POPDOWN PROFILE CARD --- */}
                     <AnimatePresence>
                         {isVisible && (
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -149,7 +149,7 @@ const ChatHeader = ({ user, isOnline, isTyping, onBack }) => {
                                         </div>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </m.div>
                         )}
                     </AnimatePresence>
 

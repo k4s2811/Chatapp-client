@@ -11,13 +11,51 @@ const MESSAGES_PER_PAGE = 20;
 // hit zero / go negative — which would break scroll anchoring on pagination.
 const START_INDEX = 1_000_000;
 
+// How many conversations' message threads to keep in memory. Re-opening any of
+// these is instant (no refetch, no loader). Oldest is evicted past the cap.
+const MAX_CACHED = 12;
+
+// Ack timeout for socket sends. If the server never acks within this window
+// (dropped connection, etc.), the optimistic bubble is marked `failed` so the
+// user gets a retry affordance instead of a spinner that never resolves.
+const SEND_TIMEOUT_MS = 15000;
+
 // Centralized typing state: auto-clear a "typing" flag if the matching "stopped"
 // event never arrives. Keyed by `${conversationId}:${userId}`.
 const TYPING_TIMEOUT_MS = 5000;
 const typingTimers = {};
 
+// Snapshot the currently-open thread into the per-conversation cache and return
+// the new { cache, cacheOrder } (LRU — most-recently-used at the end).
+function stashActive(state) {
+    const convId = state.activeConvId ? String(state.activeConvId) : null;
+    if (!convId) return { cache: state.cache, cacheOrder: state.cacheOrder };
+
+    const cache = {
+        ...state.cache,
+        [convId]: {
+            messages: state.messages,
+            hasMore: state.hasMore,
+            firstItemIndex: state.firstItemIndex,
+        },
+    };
+    const cacheOrder = [...state.cacheOrder.filter((id) => id !== convId), convId];
+    while (cacheOrder.length > MAX_CACHED) {
+        const evicted = cacheOrder.shift();
+        if (evicted !== convId) delete cache[evicted];
+    }
+    return { cache, cacheOrder };
+}
+
 export const useChatStore = create((set, get) => ({
     messages: [],
+    // Which conversation the `messages` array currently represents. Tracked
+    // separately from useConversationStore.activeConversation so we can detect a
+    // pending switch and stash/restore threads without races.
+    activeConvId: null,
+    // Per-conversation cache: { [conversationId]: { messages, hasMore, firstItemIndex } }.
+    cache: {},
+    cacheOrder: [],
     // Single source of truth for typing: { [conversationId]: string[] of userIds }.
     typingByConversation: {},
     isLoadingMessages: false,
@@ -25,24 +63,69 @@ export const useChatStore = create((set, get) => ({
     hasMore: true,
     firstItemIndex: START_INDEX,
 
-    clearMessages: () => set({ messages: [], hasMore: true, firstItemIndex: START_INDEX }),
+    // Full reset (used on teardown/sign-out). Drops the cache too so a different
+    // user can't briefly see a previous session's threads.
+    clearMessages: () => set({
+        messages: [], hasMore: true, firstItemIndex: START_INDEX,
+        activeConvId: null, cache: {}, cacheOrder: [],
+    }),
 
+    // Open a conversation: stash the outgoing thread, then either restore the
+    // incoming one from cache instantly or fetch it. Idempotent — re-opening the
+    // already-open conversation is a no-op.
     fetchHistory: async (conversationId) => {
         if (!conversationId) return;
+        const cid = String(conversationId);
+        const state = get();
+        if (String(state.activeConvId) === cid) return; // already open
 
-        set({ isLoadingMessages: true, messages: [], hasMore: true });
+        const stashed = stashActive(state);
+        const cached = stashed.cache[cid];
+
+        // Cache hit → instant restore, no network, no loader. Live socket events
+        // keep cached-but-not-open threads fresh (see handleSocketNewMessage), so
+        // what we restore is already up to date.
+        if (cached) {
+            set({
+                ...stashed,
+                activeConvId: cid,
+                messages: cached.messages,
+                hasMore: cached.hasMore,
+                firstItemIndex: cached.firstItemIndex,
+                isLoadingMessages: false,
+            });
+            return;
+        }
+
+        set({
+            ...stashed,
+            activeConvId: cid,
+            messages: [],
+            hasMore: true,
+            firstItemIndex: START_INDEX,
+            isLoadingMessages: true,
+        });
 
         try {
             const res = await messageApi.getMessages(conversationId, { limit: MESSAGES_PER_PAGE });
             const fetchedMessages = res.data?.data || res.data || [];
             // Prefer the server's cursor signal; fall back to length heuristic.
             const hasMore = res.data?.pagination?.hasMore ?? (fetchedMessages.length >= MESSAGES_PER_PAGE);
+            const entry = { messages: fetchedMessages, hasMore, firstItemIndex: START_INDEX };
 
-            set({
+            // The user may have switched away while this was in flight — keep the
+            // result in cache for later, but don't disturb the current view.
+            if (String(get().activeConvId) !== cid) {
+                set((s) => ({ cache: { ...s.cache, [cid]: entry } }));
+                return;
+            }
+
+            set((s) => ({
                 messages: fetchedMessages,
                 hasMore,
-                firstItemIndex: START_INDEX
-            });
+                firstItemIndex: START_INDEX,
+                cache: { ...s.cache, [cid]: entry },
+            }));
 
             const currentUserId = String(useAuthStore.getState().user?.id || '');
             const socket = useSocketStore.getState().socket;
@@ -56,7 +139,29 @@ export const useChatStore = create((set, get) => ({
         } catch (error) {
             console.error("Failed to fetch messages:", error);
         } finally {
-            set({ isLoadingMessages: false });
+            if (String(get().activeConvId) === cid) set({ isLoadingMessages: false });
+        }
+    },
+
+    // Re-pull the newest page for the open thread (used after a reconnect, where
+    // the socket does NOT replay messages missed while disconnected).
+    refreshActiveHistory: async () => {
+        const convId = get().activeConvId;
+        if (!convId) return;
+        const cid = String(convId);
+        try {
+            const res = await messageApi.getMessages(cid, { limit: MESSAGES_PER_PAGE });
+            const fetched = res.data?.data || res.data || [];
+            const hasMore = res.data?.pagination?.hasMore ?? (fetched.length >= MESSAGES_PER_PAGE);
+            if (String(get().activeConvId) !== cid) return;
+            set((s) => ({
+                messages: fetched,
+                hasMore,
+                firstItemIndex: START_INDEX,
+                cache: { ...s.cache, [cid]: { messages: fetched, hasMore, firstItemIndex: START_INDEX } },
+            }));
+        } catch (error) {
+            console.error("Failed to refresh messages:", error);
         }
     },
 
@@ -114,12 +219,43 @@ export const useChatStore = create((set, get) => ({
         // Optimistic update
         set((state) => ({ messages: [...state.messages, tempMessage] }));
 
-        socket.emit("send_message", tempMessage, (response) => {
+        // .timeout() so a dropped / never-acked send resolves as `failed` (→ retry
+        // UI) instead of sticking on the "sending" clock forever.
+        socket.timeout(SEND_TIMEOUT_MS).emit("send_message", tempMessage, (err, response) => {
             set((state) => ({
                 messages: state.messages.map((msg) =>
                     msg.clientMessageId === tempMessage.clientMessageId
-                        ? { ...msg, sending: false, failed: !response.success, _id: response.messageId || msg._id }
+                        ? { ...msg, sending: false, failed: !!err || !response?.success, _id: response?.messageId || msg._id }
                         : msg
+                )
+            }));
+        });
+    },
+
+    // Re-send a message whose optimistic bubble is in the `failed` state, reusing
+    // its clientMessageId so the server dedups if the original actually landed.
+    retryMessage: (clientMessageId) => {
+        const socket = useSocketStore.getState().socket;
+        const msg = get().messages.find((m) => m.clientMessageId === clientMessageId);
+        if (!msg || !socket) return;
+
+        set((state) => ({
+            messages: state.messages.map((m) =>
+                m.clientMessageId === clientMessageId ? { ...m, sending: true, failed: false } : m
+            )
+        }));
+
+        socket.timeout(SEND_TIMEOUT_MS).emit("send_message", {
+            conversationId: msg.conversationId,
+            text: msg.text,
+            attachments: msg.attachments || [],
+            clientMessageId,
+        }, (err, response) => {
+            set((state) => ({
+                messages: state.messages.map((m) =>
+                    m.clientMessageId === clientMessageId
+                        ? { ...m, sending: false, failed: !!err || !response?.success, _id: response?.messageId || m._id }
+                        : m
                 )
             }));
         });
@@ -153,22 +289,33 @@ export const useChatStore = create((set, get) => ({
 
     // Handlers for Socket Events
     handleSocketNewMessage: (message) => {
-        const activeConversation = useConversationStore.getState().activeConversation;
+        const activeConvId = String(get().activeConvId || '');
         const currentUserId = String(useAuthStore.getState().user?.id || '');
         const socket = useSocketStore.getState().socket;
+        const cid = String(message.conversationId);
 
-        if (String(message.conversationId) !== String(activeConversation)) return;
+        const append = (list) => {
+            const exists = list.some((m) =>
+                (message.clientMessageId && m.clientMessageId === message.clientMessageId) ||
+                (message._id && m._id === message._id));
+            return exists ? list : [...list, message];
+        };
 
-        set((state) => {
-            const exists = state.messages.some((m) => m.clientMessageId === message.clientMessageId || m._id === message._id);
-            if (exists) return state;
-            return { messages: [...state.messages, message] };
-        });
-
-        if (String(message.senderId) !== currentUserId && socket) {
-            socket.emit("mark_read", {
-                conversationId: message.conversationId,
-                messageId: message._id || message.clientMessageId
+        if (cid === activeConvId) {
+            set((state) => ({ messages: append(state.messages) }));
+            if (String(message.senderId) !== currentUserId && socket) {
+                socket.emit("mark_read", {
+                    conversationId: message.conversationId,
+                    messageId: message._id || message.clientMessageId
+                });
+            }
+        } else {
+            // Keep a cached-but-not-open thread fresh so re-opening it is both
+            // instant AND current.
+            set((state) => {
+                const entry = state.cache[cid];
+                if (!entry) return state;
+                return { cache: { ...state.cache, [cid]: { ...entry, messages: append(entry.messages) } } };
             });
         }
     },
@@ -201,21 +348,29 @@ export const useChatStore = create((set, get) => ({
     },
 
     handleSocketMessageDeleted: ({ messageId, conversationId }) => {
-        const activeConversation = useConversationStore.getState().activeConversation;
-        if (String(conversationId) !== String(activeConversation)) return;
+        const cid = String(conversationId);
+        const activeConvId = String(get().activeConvId || '');
 
-        set((state) => ({
-            messages: state.messages.map((msg) => {
-                if (msg._id === messageId || msg.clientMessageId === messageId) {
-                    return {
-                        ...msg,
-                        isDeleted: true,
-                        content: { ...msg.content, text: "This message was deleted", attachments: [] },
-                        text: "This message was deleted"
-                    };
-                }
-                return msg;
-            })
-        }));
+        const applyDelete = (list) => list.map((msg) => {
+            if (msg._id === messageId || msg.clientMessageId === messageId) {
+                return {
+                    ...msg,
+                    isDeleted: true,
+                    content: { ...msg.content, text: "This message was deleted", attachments: [] },
+                    text: "This message was deleted"
+                };
+            }
+            return msg;
+        });
+
+        if (cid === activeConvId) {
+            set((state) => ({ messages: applyDelete(state.messages) }));
+        } else {
+            set((state) => {
+                const entry = state.cache[cid];
+                if (!entry) return state;
+                return { cache: { ...state.cache, [cid]: { ...entry, messages: applyDelete(entry.messages) } } };
+            });
+        }
     }
 }));

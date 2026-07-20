@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect, useDeferredValue, memo } from 'rea
 import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Skeleton } from '../../components/ui/skeleton';
-import { formatDistanceToNow } from 'date-fns';
-import { motion } from 'framer-motion';
+import { formatRelativeTime } from '../../lib/time';
+import { m } from 'framer-motion';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConversationStore } from '../../store/useConversationStore';
 import { useSocketStore } from '../../store/useSocketStore';
@@ -11,17 +11,10 @@ import { useChatStore } from '../../store/useChatStore';
 
 
 const ConversationItem = memo(({ chat, isSelected, isTyping, isOnline, onClick }) => {
-  const formatTime = (dateString) => {
-    if (!dateString) return '';
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-    } catch {
-      return '';
-    }
-  };
+  const formatTime = formatRelativeTime;
 
   return (
-    <motion.button
+    <m.button
       whileTap={{ scale: 0.96 }}
       onClick={() => onClick(chat.rawUser)}
       className={`w-full rounded-xl flex items-center gap-3 p-3 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors text-left ${isSelected ? 'bg-sidebar-accent border-l-4 border-l-primary pl-2' : 'border-l-4 border-l-transparent'
@@ -63,7 +56,7 @@ const ConversationItem = memo(({ chat, isSelected, isTyping, isOnline, onClick }
           )}
         </div>
       </div>
-    </motion.button>
+    </m.button>
   );
 });
 

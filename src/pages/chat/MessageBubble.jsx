@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCheck, Copy, Clock, Trash2, Ban } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { m, AnimatePresence } from 'framer-motion';
+import { Check, CheckCheck, Copy, Clock, Trash2, Ban, AlertCircle, RotateCw } from 'lucide-react';
+import { formatRelativeTime } from '../../lib/time';
 
 const MessageBubble = ({
   message,
   isOwn,
   status,
-  onDelete
+  onDelete,
+  onRetry,
+  // Grouping: consecutive messages from the same sender within a short window
+  // render as one visual run — only the last bubble carries the timestamp/ticks,
+  // and the run gets a single tight gap instead of a full margin per message.
+  isFirstInGroup = true,
+  isLastInGroup = true,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
   // selectedText: text highlighted inside this bubble when the menu opened.
@@ -41,15 +47,12 @@ const MessageBubble = ({
     });
   }, [messageText]);
 
-  const formattedTime = useMemo(() => {
-    const d = message.createdAt || new Date();
-    if (!d) return '';
-    try {
-      return formatDistanceToNow(new Date(d), { addSuffix: true });
-    } catch {
-      return '';
-    }
-  }, [message.createdAt]);
+  const formattedTime = useMemo(
+    () => formatRelativeTime(message.createdAt || new Date()),
+    [message.createdAt]
+  );
+
+  const isFailed = status === 'failed';
 
   // Read any text currently selected inside THIS bubble.
   const getSelectionInBubble = () => {
@@ -103,7 +106,7 @@ const MessageBubble = ({
     <>
       {/* PERF: Removed framer-motion entry animation — caused layout/animation overhead on every visible message */}
       <div
-        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
+        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-0.5'}`}
         data-testid={`message-bubble-${message._id}`}
       >
         <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%] min-w-0 relative group`}>
@@ -114,9 +117,12 @@ const MessageBubble = ({
             className={`${isOwn
                 ? 'bg-message-sent text-message-sent-foreground'
                 : 'bg-message-received text-message-received-foreground border border-border'
-              } rounded-2xl ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
+              } rounded-2xl ${
+              // Only the first bubble of a run gets the "tail" corner, so a group
+              // reads as one block rather than a stack of separate messages.
+              isFirstInGroup ? (isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm') : ''
               } shadow-sm px-4 py-2 max-w-full break-words transition-transform ${isDeleted ? 'opacity-70 bg-muted text-muted-foreground border-dashed' : ''
-              }`}
+              } ${isFailed ? 'opacity-60 ring-1 ring-destructive/50' : ''}`}
           >
             {isDeleted ? (
               <div className="flex items-center gap-2 italic text-[15px]">
@@ -130,12 +136,30 @@ const MessageBubble = ({
             )}
           </div>
 
+          {/* Meta row: only on the last bubble of a group — except a failed send
+              (always needs its error + retry affordance) or an active "Copied!"
+              toast, which renders inside this row. */}
+          {(isLastInGroup || isFailed || isCopied) && (
           <div className={`flex items-center gap-1.5 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-            <span className="text-xs text-muted-foreground">
-              {formattedTime}
-            </span>
+            {isFailed ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={!onRetry}
+                aria-label="Message failed to send. Tap to retry."
+                className="flex items-center gap-1 text-xs font-medium text-destructive hover:underline disabled:no-underline disabled:opacity-70"
+              >
+                <AlertCircle size={13} />
+                <span>Not sent</span>
+                {onRetry && <RotateCw size={12} className="opacity-80" />}
+              </button>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                {formattedTime}
+              </span>
+            )}
 
-            {isOwn && !isDeleted && (
+            {isOwn && !isDeleted && !isFailed && (
               <div className="text-muted-foreground flex items-center">
                 {status === 'read' ? (
                   <CheckCheck size={14} className="text-primary" />
@@ -149,7 +173,7 @@ const MessageBubble = ({
 
             <AnimatePresence>
               {isCopied && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
@@ -157,16 +181,17 @@ const MessageBubble = ({
                 >
                   <Copy size={12} />
                   <span>Copied!</span>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </div>
+          )}
         </div>
       </div>
 
       <AnimatePresence>
         {contextMenu.show && !isDeleted && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -191,7 +216,7 @@ const MessageBubble = ({
                 Delete
               </button>
             )}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </>
@@ -208,7 +233,9 @@ const areEqual = (prevProps, nextProps) => {
     prevText === nextText &&
     prevProps.message.isDeleted === nextProps.message.isDeleted &&
     prevProps.isOwn === nextProps.isOwn &&
-    prevProps.status === nextProps.status
+    prevProps.status === nextProps.status &&
+    prevProps.isFirstInGroup === nextProps.isFirstInGroup &&
+    prevProps.isLastInGroup === nextProps.isLastInGroup
   );
 };
 

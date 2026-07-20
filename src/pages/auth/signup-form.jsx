@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, Loader2, Check, X } from 'lucide-react'
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -130,7 +130,7 @@ export function SignupForm({ onSwitchToSignin }) {
 
                     {/* Password Requirements */}
                     {showRequirements && (form.password).length > 0 && (
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
@@ -139,7 +139,7 @@ export function SignupForm({ onSwitchToSignin }) {
                             {passwordRequirements.map((req, index) => {
                                 const met = req.test(form.password)
                                 return (
-                                    <motion.div
+                                    <m.div
                                         key={index}
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -153,21 +153,21 @@ export function SignupForm({ onSwitchToSignin }) {
                                             <X className="h-3 w-3" />
                                         )}
                                         {req.label}
-                                    </motion.div>
+                                    </m.div>
                                 )
                             })}
-                        </motion.div>
+                        </m.div>
                     )}
 
                 </Field>
 
                 {error && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
                         <FieldError>{error}</FieldError>
-                    </motion.div>
+                    </m.div>
                 )}
 
                 <Button

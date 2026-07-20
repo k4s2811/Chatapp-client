@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { SigninForm } from './signin-form';
 import { SignupForm } from './signup-form';
 import { ThemeToggle_Lite } from '../../components/ThemeToggle.jsx';
@@ -15,7 +15,7 @@ export default function AuthPage() {
         <div className="absolute -bottom-1/4 -right-1/4 h-1/2 w-1/2 rounded-full bg-primary/5 blur-3xl" />
       </div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -23,15 +23,15 @@ export default function AuthPage() {
       >
         {/* Logo and Title */}
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <motion.div
+          <m.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
             className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary"
           >
             <MessageCircle className="h-8 w-8 text-primary-foreground" />
-          </motion.div>
-          <motion.div
+          </m.div>
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -42,11 +42,11 @@ export default function AuthPage() {
                 ? 'Welcome back! Sign in to continue.'
                 : 'Create an account to get started.'}
             </p>
-          </motion.div>
+          </m.div>
         </div>
 
         {/* Auth Form Card */}
-        <motion.div
+        <m.div
           layout
           className="overflow-hidden rounded-2xl border bg-card shadow-lg">
 
@@ -61,7 +61,7 @@ export default function AuthPage() {
             >
               Sign In
               {mode === 'signin' && (
-                <motion.div
+                <m.div
                   layoutId="activeTab"
                   className="absolute inset-x-0 -bottom-px h-0.5 bg-primary-foreground"
                 />
@@ -76,7 +76,7 @@ export default function AuthPage() {
             >
               Sign Up
               {mode === 'signup' && (
-                <motion.div
+                <m.div
                   layoutId="activeTab"
                   className="absolute inset-x-0 -bottom-px h-0.5 bg-primary-foreground"
                 />
@@ -86,7 +86,7 @@ export default function AuthPage() {
           <div className="p-6">
             <AnimatePresence mode="wait">
               {mode === 'signin' ? (
-                <motion.div
+                <m.div
                   key="signin"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -94,9 +94,9 @@ export default function AuthPage() {
                   transition={{ duration: 0.2 }}
                 >
                   <SigninForm onSwitchToSignup={() => setMode('signup')} />
-                </motion.div>
+                </m.div>
               ) : (
-                <motion.div
+                <m.div
                   key="signup"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -104,23 +104,23 @@ export default function AuthPage() {
                   transition={{ duration: 0.2 }}
                 >
                   <SignupForm onSwitchToSignin={() => setMode('signin')} />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Footer */}
-        <motion.p
+        <m.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
           className="mt-6 text-center text-xs text-muted-foreground"
         >
           By continuing, you agree to our Terms of Service and Privacy Policy.
-        </motion.p>
+        </m.p>
 
-      </motion.div>
+      </m.div>
     </div>
   )
 }

@@ -1,14 +1,14 @@
 import { useThemeStore } from '../store/useThemeStore';
 import { Button } from "./ui/button.jsx";
 import { Moon, Sun } from "lucide-react";
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 
 export const ThemeToggle = () => {
     const isDark = useThemeStore(state => state.isDark);
     const toggleDark = useThemeStore(state => state.toggleDark);
 
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5 }}
@@ -24,7 +24,7 @@ export const ThemeToggle = () => {
                 <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Toggle theme</span>
             </Button>
-        </motion.div>
+        </m.div>
     )
 }
 

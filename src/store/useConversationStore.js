@@ -92,11 +92,20 @@ export const useConversationStore = create((set, get) => ({
             return;
         }
 
-        // Switching: reset the message pane and show loading up front, so the new
-        // user's header never renders over the previous conversation's messages
-        // (selectedUser and activeConversation can't visibly disagree).
-        useChatStore.setState({ messages: [], isLoadingMessages: true, hasMore: true });
         set({ selectedUser: formattedUser });
+
+        // Switch the message pane up front so the new user's header never renders
+        // over the previous conversation's messages.
+        //  - Known conversation → open it synchronously (fetchHistory stashes the
+        //    old thread and restores this one from cache instantly, or loads it).
+        //  - Brand-new conversation → we don't have an id yet, so just show a
+        //    loader until createOrGetConversation resolves below.
+        if (existingId) {
+            set({ activeConversation: existingId });
+            useChatStore.getState().fetchHistory(existingId);
+        } else {
+            useChatStore.setState({ isLoadingMessages: true });
+        }
 
         // The sidebar/denormalized path only carries name + avatar, so fetch the
         // full profile (email, bio, joined date) for the chat header — one call

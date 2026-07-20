@@ -3,6 +3,10 @@ import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import EmptyState from './EmptyState';
+import ConnectionStatus from '../../components/ConnectionStatus';
+
+// Stable empty reference so gating messages during a switch doesn't churn props.
+const EMPTY_MESSAGES = [];
 
 // 1. Use the new Zustand stores instead of Context
 import { useAuthStore } from '../../store/useAuthStore';
@@ -20,7 +24,9 @@ export default function ChatWindow({
     const onlineUsers = useSocketStore(state => state.onlineUsers);
     const checkUserOnline = useSocketStore(state => state.checkUserOnline);
     const messages = useChatStore(state => state.messages);
+    const chatConvId = useChatStore(state => state.activeConvId);
     const sendMessage = useChatStore(state => state.sendMessage);
+    const retryMessage = useChatStore(state => state.retryMessage);
     const sendTyping = useChatStore(state => state.sendTyping);
     const loadMoreMessages = useChatStore(state => state.loadMoreMessages);
     const hasMore = useChatStore(state => state.hasMore);
@@ -45,6 +51,14 @@ export default function ChatWindow({
     const activeConvId = conversation?.id || conversation?._id;
 
     const currentUserId = String(currentUser?.id || currentUser?._id || '');
+
+    // Selecting a conversation re-renders this component immediately, but the
+    // store's messages only swap once SocketManager's effect runs fetchHistory
+    // — one painted frame later. Without gating, that frame shows the PREVIOUS
+    // conversation's messages under the new header. Render nothing until the
+    // store agrees on which conversation is open.
+    const isSwitching = String(chatConvId || '') !== String(activeConvId || '');
+    const displayMessages = isSwitching ? EMPTY_MESSAGES : messages;
 
     // Derive typing from the centralized per-conversation map (only re-renders
     // when THIS conversation's typing list changes).
@@ -113,12 +127,14 @@ export default function ChatWindow({
         <div className="flex-1 flex flex-col h-full bg-background transition-colors relative overflow-hidden" data-testid="chat-window">
             <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRegionRef} />
             <ChatHeader user={user} isOnline={isOnline} isTyping={isTyping} onBack={onBack} />
+            <ConnectionStatus />
 
             <MessageList
-                messages={messages}
+                messages={displayMessages}
                 currentUserId={currentUserId}
                 otherUserLastReadId={otherUserLastReadId}
                 deleteMessage={deleteMessage}
+                retryMessage={retryMessage}
                 isFetchingMore={isFetchingMore}
                 isTyping={isTyping}
                 hasMore={hasMore}

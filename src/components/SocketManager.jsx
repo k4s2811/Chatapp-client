@@ -10,8 +10,8 @@ export default function SocketManager() {
     const connected = useSocketStore(state => state.connected);
     const initSocket = useSocketStore(state => state.initSocket);
     const activeConversation = useConversationStore(state => state.activeConversation);
-    const hasJoinedRef = useRef(false);
     const joinedRoomsRef = useRef(new Set());
+    const wasConnectedRef = useRef(false);
 
     // 1. Initialize socket when user logs in
     useEffect(() => {
@@ -61,20 +61,23 @@ export default function SocketManager() {
         };
     }, [socket]);
 
-    // 3. Active Conversation — fetch history on first visit, clear messages on switch
+    // 3. Active Conversation — open the thread. fetchHistory stashes the outgoing
+    //    conversation into the in-memory cache and restores the incoming one
+    //    instantly on a cache hit (no reload when flipping between chats), or
+    //    fetches it on a miss. It's idempotent, so re-runs are harmless.
     useEffect(() => {
         if (!socket || !activeConversation) return;
+        useChatStore.getState().fetchHistory(activeConversation);
+    }, [socket, activeConversation]);
 
-        if (!hasJoinedRef.current) {
-            hasJoinedRef.current = true;
-            useChatStore.getState().fetchHistory(activeConversation);
+    // 3b. On RE-connect (not the first connect), pull anything the open thread
+    //     missed while the socket was down — the server doesn't replay those.
+    useEffect(() => {
+        if (connected && wasConnectedRef.current) {
+            useChatStore.getState().refreshActiveHistory();
         }
-
-        return () => {
-            useChatStore.getState().clearMessages();
-            hasJoinedRef.current = false;
-        };
-    }, [socket, activeConversation, connected]);
+        wasConnectedRef.current = connected;
+    }, [connected]);
 
     // 4. Join ALL conversation rooms (for sidebar real-time updates: unread count, typing)
     //    Fires on connect/reconnect. Subscribes only to conversations array changes.

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { 
   Check, X, Loader2, Lock, Eye, EyeOff, Camera, 
   LogOut, ShieldCheck, UserCircle, ChevronDown, 
@@ -184,9 +184,9 @@ export default function Profile() {
 
         {/* Global Success Alert */}
         {success && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 mb-4 text-sm font-medium text-green-600 bg-green-500/10 rounded-lg text-center">
+            <m.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 mb-4 text-sm font-medium text-green-600 bg-green-500/10 rounded-lg text-center">
                 {success}
-            </motion.div>
+            </m.div>
         )}
 
         {/* --- Accordion 1: Update Profile --- */}
@@ -204,7 +204,7 @@ export default function Profile() {
             
             <AnimatePresence>
                 {openSection === 'profile' && (
-                    <motion.div 
+                    <m.div 
                         initial={{ height: 0, opacity: 0 }} 
                         animate={{ height: 'auto', opacity: 1 }} 
                         exit={{ height: 0, opacity: 0 }}
@@ -261,7 +261,7 @@ export default function Profile() {
                                 {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Profile'}
                             </Button>
                         </form>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>
@@ -282,7 +282,7 @@ export default function Profile() {
             
             <AnimatePresence>
                 {openSection === 'security' && (
-                    <motion.div 
+                    <m.div 
                         initial={{ height: 0, opacity: 0 }} 
                         animate={{ height: 'auto', opacity: 1 }} 
                         exit={{ height: 0, opacity: 0 }}
@@ -334,17 +334,17 @@ export default function Profile() {
 
                               {/* Password Requirements UI */}
                               {showRequirements && (passForm.newPassword).length > 0 && (
-                                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-2 space-y-1.5">
+                                  <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-2 space-y-1.5">
                                   {passwordRequirements.map((req, index) => {
                                       const met = req.test(passForm.newPassword)
                                       return (
-                                      <motion.div key={index} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className={`flex items-center gap-2 text-xs ${met ? 'text-primary' : 'text-muted-foreground'}`}>
+                                      <m.div key={index} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className={`flex items-center gap-2 text-xs ${met ? 'text-primary' : 'text-muted-foreground'}`}>
                                           {met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                                           {req.label}
-                                      </motion.div>
+                                      </m.div>
                                       )
                                   })}
-                                  </motion.div>
+                                  </m.div>
                               )}
                             </Field>
 
@@ -374,7 +374,7 @@ export default function Profile() {
                             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : 'Update Password'}
                         </Button>
                         </form>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>
